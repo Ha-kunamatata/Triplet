@@ -1,0 +1,68 @@
+/* ── 변수 ── */
+:root {
+  --primary: #4A90E2;
+  --primary-dark: #2C6FBF;
+  --primary-light: #EBF3FC;
+  --secondary: #FF6B6B;
+  --accent: #FFB347;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --error: #EF4444;
+
+  --white: #FFFFFF;
+  --bg: #F4F6FA;
+  --surface: #FFFFFF;
+  --border: #E5E7EB;
+
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --text-disabled: #D1D5DB;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.10);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+
+  --font: 'Noto Sans KR', -apple-system, sans-serif;
+
+  /* 모바일 앱처럼 최대 너비 고정 */
+  --app-width: 430px;
+  --bottom-nav-height: 64px;
+}
+
+/* ── 리셋 ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: var(--font);
+  background: #E8EDF5;
+  color: var(--text-primary);
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+}
+#root {
+  width: 100%;
+  max-width: var(--app-width);
+  min-height: 100dvh;
+  background: var(--bg);
+  position: relative;
+  box-shadow: 0 0 40px rgba(0,0,0,0.15);
+  overflow-x: hidden;
+}
+a { text-decoration: none; color: inherit; }
+button { font-family: var(--font); cursor: pointer; border: none; background: none; }
+input, textarea { font-family: var(--font); }
+img { max-width: 100%; }
+
+/* ── 스크롤바 숨김 ── */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* ── 유틸리티 ── */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }

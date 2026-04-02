@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 export default function Toast({ message, type = 'info', onClose }) {
   const [visible, setVisible] = useState(true)
@@ -33,8 +33,6 @@ export default function Toast({ message, type = 'info', onClose }) {
 }
 
 /* ── useToast hook ── */
-import { useState, useCallback } from 'react'
-
 export function useToast() {
   const [toast, setToast] = useState(null)
   const show = useCallback((message, type = 'info') => setToast({ message, type, key: Date.now() }), [])

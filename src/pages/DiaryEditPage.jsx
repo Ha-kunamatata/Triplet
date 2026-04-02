@@ -28,11 +28,8 @@ export default function DiaryEditPage() {
     if (!form.title.trim() || !form.content.trim()) return
     setLoading(true)
     try {
-      if (isEdit) {
-        await updateDiary(diaryId, form)
-      } else {
-        await createDiary(user.uid, tripId, form)
-      }
+      if (isEdit) await updateDiary(diaryId, form)
+      else await createDiary(user.uid, tripId, form)
       navigate(`/trips/${tripId}/diary`)
     } finally {
       setLoading(false)
@@ -40,59 +37,99 @@ export default function DiaryEditPage() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#fff', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--c-surface)', display: 'flex', flexDirection: 'column' }}>
       <PageHeader
         title={isEdit ? '일기 수정' : '일기 쓰기'}
         actions={
-          <button onClick={handleSave} disabled={loading} style={{ padding: '8px 18px', background: 'var(--primary)', color: '#fff', borderRadius: 'var(--radius-full)', fontSize: 14, fontWeight: 700 }}>
+          <button
+            onClick={handleSave} disabled={loading || !form.title.trim() || !form.content.trim()}
+            style={{
+              padding: '8px 18px', borderRadius: 'var(--r-full)',
+              background: (!form.title.trim() || !form.content.trim()) ? 'var(--c-border2)' : 'var(--c-primary)',
+              color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 'var(--fw-bold)',
+              boxShadow: (!form.title.trim() || !form.content.trim()) ? 'none' : 'var(--shadow-primary)',
+              transition: 'all var(--t-base)',
+            }}
+          >
             {loading ? '저장 중...' : '저장'}
           </button>
         }
       />
 
-      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 20, flex: 1 }}>
-        {/* 기분 */}
-        <div>
-          <p style={lbl}>오늘의 기분</p>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-            {DIARY_MOODS.map(m => (
-              <button key={m.key} type="button" onClick={() => toggle('mood', m.key)}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: form.mood === m.key ? 'var(--primary-light)' : 'var(--bg)', border: `1.5px solid ${form.mood === m.key ? 'var(--primary)' : 'transparent'}`, gap: 3 }}>
-                <span style={{ fontSize: 22 }}>{m.emoji}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: form.mood === m.key ? 'var(--primary)' : 'var(--text-secondary)' }}>{m.label}</span>
-              </button>
-            ))}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Mood & Weather selectors */}
+        <div style={{ padding: '16px 20px 0', display: 'flex', flexDirection: 'column', gap: 16, borderBottom: '1px solid var(--c-border)' }}>
+          {/* Mood */}
+          <div>
+            <p style={lbl}>오늘의 기분</p>
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+              {DIARY_MOODS.map(m => (
+                <button key={m.key} type="button" onClick={() => toggle('mood', m.key)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '8px 14px', borderRadius: 'var(--r-lg)', gap: 3,
+                    background: form.mood === m.key ? 'var(--c-primary-light)' : 'var(--c-surface2)',
+                    border: `1.5px solid ${form.mood === m.key ? 'var(--c-primary)' : 'transparent'}`,
+                    transition: 'all var(--t-fast)',
+                    transform: form.mood === m.key ? 'scale(1.05)' : 'scale(1)',
+                  }}>
+                  <span style={{ fontSize: 22 }}>{m.emoji}</span>
+                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-semibold)', color: form.mood === m.key ? 'var(--c-primary)' : 'var(--c-text-3)' }}>{m.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Weather */}
+          <div style={{ paddingBottom: 16 }}>
+            <p style={lbl}>날씨</p>
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+              {DIARY_WEATHERS.map(w => (
+                <button key={w.key} type="button" onClick={() => toggle('weather', w.key)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '8px 14px', borderRadius: 'var(--r-lg)', gap: 3,
+                    background: form.weather === w.key ? 'var(--c-primary-light)' : 'var(--c-surface2)',
+                    border: `1.5px solid ${form.weather === w.key ? 'var(--c-primary)' : 'transparent'}`,
+                    transition: 'all var(--t-fast)',
+                    transform: form.weather === w.key ? 'scale(1.05)' : 'scale(1)',
+                  }}>
+                  <span style={{ fontSize: 22 }}>{w.emoji}</span>
+                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-semibold)', color: form.weather === w.key ? 'var(--c-primary)' : 'var(--c-text-3)' }}>{w.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* 날씨 */}
-        <div>
-          <p style={lbl}>날씨</p>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-            {DIARY_WEATHERS.map(w => (
-              <button key={w.key} type="button" onClick={() => toggle('weather', w.key)}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: form.weather === w.key ? 'var(--primary-light)' : 'var(--bg)', border: `1.5px solid ${form.weather === w.key ? 'var(--primary)' : 'transparent'}`, gap: 3 }}>
-                <span style={{ fontSize: 22 }}>{w.emoji}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: form.weather === w.key ? 'var(--primary)' : 'var(--text-secondary)' }}>{w.label}</span>
-              </button>
-            ))}
-          </div>
+        {/* Writing area */}
+        <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <input
+            value={form.title} onChange={set('title')}
+            placeholder="제목을 입력하세요"
+            style={{
+              width: '100%', fontSize: 'var(--text-xl)', fontWeight: 'var(--fw-extrabold)',
+              border: 'none', outline: 'none', color: 'var(--c-text-1)',
+              background: 'transparent', fontFamily: 'var(--font)',
+              borderBottom: '2px solid var(--c-border)', paddingBottom: 12,
+              boxSizing: 'border-box',
+            }}
+          />
+          <textarea
+            value={form.content} onChange={set('content')}
+            placeholder="오늘의 여행 이야기를 자유롭게 써보세요..."
+            style={{
+              flex: 1, width: '100%', fontSize: 'var(--text-base)',
+              border: 'none', outline: 'none', resize: 'none',
+              lineHeight: 1.9, minHeight: 280,
+              color: 'var(--c-text-1)', background: 'transparent',
+              fontFamily: 'var(--font)', boxSizing: 'border-box',
+            }}
+          />
         </div>
-
-        {/* 제목 */}
-        <input
-          value={form.title} onChange={set('title')} placeholder="제목"
-          style={{ width: '100%', fontSize: 22, fontWeight: 700, border: 'none', outline: 'none', borderBottom: '1.5px solid var(--border)', paddingBottom: 12, boxSizing: 'border-box' }}
-        />
-
-        {/* 본문 */}
-        <textarea
-          value={form.content} onChange={set('content')} placeholder="오늘의 여행 이야기를 써보세요..."
-          style={{ flex: 1, width: '100%', fontSize: 15, border: 'none', outline: 'none', resize: 'none', lineHeight: 1.8, minHeight: 300, boxSizing: 'border-box' }}
-        />
       </div>
     </div>
   )
 }
 
-const lbl = { fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }
+const lbl = { fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-semibold)', color: 'var(--c-text-2)' }

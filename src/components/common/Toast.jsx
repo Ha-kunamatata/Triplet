@@ -1,22 +1,44 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function Toast({ message, type = 'info', onClose }) {
+  const [visible, setVisible] = useState(true)
+
   useEffect(() => {
-    const t = setTimeout(onClose, 2800)
+    const t = setTimeout(() => { setVisible(false); setTimeout(onClose, 300) }, 2800)
     return () => clearTimeout(t)
   }, [onClose])
 
-  const bg = type === 'error' ? '#EF4444' : type === 'success' ? '#22C55E' : '#1F2937'
+  const icons = { success: 'check_circle', error: 'error', info: 'info' }
+  const colors = { success: '#10B981', error: '#EF4444', info: 'var(--c-primary)' }
 
   return (
     <div style={{
-      position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
-      background: bg, color: '#fff', padding: '12px 20px', borderRadius: 'var(--radius-full)',
-      fontSize: 14, fontWeight: 500, zIndex: 9999, whiteSpace: 'nowrap',
-      boxShadow: 'var(--shadow-lg)', animation: 'fadeUp 0.2s ease',
+      position: 'fixed', bottom: 'calc(var(--bottom-nav-h) + 12px)', left: '50%',
+      transform: `translateX(-50%) translateY(${visible ? 0 : '12px'})`,
+      opacity: visible ? 1 : 0,
+      transition: 'all 0.3s var(--ease)',
+      background: 'var(--c-text-1)', color: '#fff',
+      padding: '12px 18px', borderRadius: 'var(--r-full)',
+      display: 'flex', alignItems: 'center', gap: 8,
+      boxShadow: 'var(--shadow-lg)', zIndex: 9999,
+      fontSize: 'var(--text-sm)', fontWeight: 500,
+      maxWidth: 'min(360px, calc(100vw - 32px))',
+      whiteSpace: 'nowrap',
+      pointerEvents: 'none',
     }}>
+      <span className="material-symbols-outlined" style={{ fontSize: 18, color: colors[type], flexShrink: 0, fontVariationSettings: "'FILL' 1" }}>{icons[type]}</span>
       {message}
-      <style>{`@keyframes fadeUp { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }`}</style>
     </div>
   )
+}
+
+/* ── useToast hook ── */
+import { useState, useCallback } from 'react'
+
+export function useToast() {
+  const [toast, setToast] = useState(null)
+  const show = useCallback((message, type = 'info') => setToast({ message, type, key: Date.now() }), [])
+  const hide = useCallback(() => setToast(null), [])
+  const ToastEl = toast ? <Toast key={toast.key} message={toast.message} type={toast.type} onClose={hide} /> : null
+  return { show, ToastEl }
 }

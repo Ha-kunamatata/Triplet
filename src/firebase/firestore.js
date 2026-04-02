@@ -8,7 +8,6 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from './config'
@@ -21,20 +20,20 @@ export async function createTrip(userId, data) {
   const ref = await addDoc(collection(db, 'trips'), {
     ...data,
     userId,
-    status: 'upcoming',
     createdAt: serverTimestamp(),
   })
   return ref.id
 }
 
 export async function getTrips(userId) {
-  const q = query(
-    collection(db, 'trips'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc'),
-  )
+  const q = query(collection(db, 'trips'), where('userId', '==', userId))
   const snap = await getDocs(q)
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return docs.sort((a, b) => {
+    const ta = a.createdAt?.toMillis?.() ?? 0
+    const tb = b.createdAt?.toMillis?.() ?? 0
+    return tb - ta
+  })
 }
 
 export async function getTrip(tripId) {
@@ -47,12 +46,10 @@ export async function updateTrip(tripId, data) {
 }
 
 export async function deleteTrip(tripId) {
-  // 일정도 함께 삭제
   const schedules = await getSchedules(tripId)
-  await Promise.all(schedules.map((s) => deleteDoc(doc(db, 'schedules', s.id))))
-  // 일기도 함께 삭제
+  await Promise.all(schedules.map(s => deleteDoc(doc(db, 'schedules', s.id))))
   const diaries = await getDiaries(tripId)
-  await Promise.all(diaries.map((d) => deleteDoc(doc(db, 'diary', d.id))))
+  await Promise.all(diaries.map(d => deleteDoc(doc(db, 'diary', d.id))))
   await deleteDoc(doc(db, 'trips', tripId))
 }
 
@@ -69,15 +66,15 @@ export async function addSchedule(tripId, data) {
   return ref.id
 }
 
+// 복합 인덱스 없이 클라이언트 정렬
 export async function getSchedules(tripId) {
-  const q = query(
-    collection(db, 'schedules'),
-    where('tripId', '==', tripId),
-    orderBy('date', 'asc'),
-    orderBy('order', 'asc'),
-  )
+  const q = query(collection(db, 'schedules'), where('tripId', '==', tripId))
   const snap = await getDocs(q)
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return docs.sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date)
+    return (a.startTime || '99:99').localeCompare(b.startTime || '99:99')
+  })
 }
 
 export async function updateSchedule(scheduleId, data) {
@@ -102,13 +99,14 @@ export async function savePlace(userId, data) {
 }
 
 export async function getSavedPlaces(userId) {
-  const q = query(
-    collection(db, 'savedPlaces'),
-    where('userId', '==', userId),
-    orderBy('savedAt', 'desc'),
-  )
+  const q = query(collection(db, 'savedPlaces'), where('userId', '==', userId))
   const snap = await getDocs(q)
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return docs.sort((a, b) => {
+    const ta = a.savedAt?.toMillis?.() ?? 0
+    const tb = b.savedAt?.toMillis?.() ?? 0
+    return tb - ta
+  })
 }
 
 export async function deleteSavedPlace(placeId) {
@@ -130,13 +128,14 @@ export async function createDiary(userId, tripId, data) {
 }
 
 export async function getDiaries(tripId) {
-  const q = query(
-    collection(db, 'diary'),
-    where('tripId', '==', tripId),
-    orderBy('createdAt', 'desc'),
-  )
+  const q = query(collection(db, 'diary'), where('tripId', '==', tripId))
   const snap = await getDocs(q)
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return docs.sort((a, b) => {
+    const ta = a.createdAt?.toMillis?.() ?? 0
+    const tb = b.createdAt?.toMillis?.() ?? 0
+    return tb - ta
+  })
 }
 
 export async function getDiary(diaryId) {

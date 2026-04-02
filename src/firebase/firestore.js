@@ -45,6 +45,10 @@ export async function updateTrip(tripId, data) {
   await updateDoc(doc(db, 'trips', tripId), { ...data, updatedAt: serverTimestamp() })
 }
 
+export async function updateChecklist(tripId, items) {
+  await updateDoc(doc(db, 'trips', tripId), { checklist: items })
+}
+
 export async function deleteTrip(tripId) {
   const schedules = await getSchedules(tripId)
   await Promise.all(schedules.map(s => deleteDoc(doc(db, 'schedules', s.id))))

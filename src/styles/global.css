@@ -140,7 +140,8 @@ img { max-width: 100%; display: block; }
     min-width: 0;
     padding-bottom: 0;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     background: var(--c-bg);
   }
   .app-main > * {

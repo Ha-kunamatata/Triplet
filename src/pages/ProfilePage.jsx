@@ -22,6 +22,7 @@ export default function ProfilePage() {
 
   return (
     <AppLayout>
+      <div style={{ paddingBottom: 32 }}>
       {/* ── User hero card ── */}
       <div style={{ margin: '16px', background: 'linear-gradient(160deg, #1E3A5F 0%, #2563EB 60%, #60A5FA 100%)', borderRadius: 'var(--r-2xl)', padding: '28px 24px', boxShadow: 'var(--shadow-lg)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
@@ -94,6 +95,7 @@ export default function ProfilePage() {
       <p style={{ textAlign: 'center', padding: '20px 16px 8px', fontSize: 'var(--text-xs)', color: 'var(--c-text-3)' }}>
         Triplet v1.0.0 · ✈️ 나만의 여행 플래너
       </p>
+      </div>
     </AppLayout>
   )
 }

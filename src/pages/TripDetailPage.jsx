@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getTrip, getSchedules, deleteTrip, deleteSchedule } from '../firebase/firestore'
+import { getTrip, getSchedules, deleteTrip, deleteSchedule, updateChecklist } from '../firebase/firestore'
 import { generateDateRange, formatDisplayDate, formatShortDate, getDDay, calcTripStatus } from '../utils/dateUtils'
 import DayTab from '../components/schedule/DayTab'
 import TripMap from '../components/maps/TripMap'
@@ -8,7 +8,16 @@ import { ScheduleSkeleton } from '../components/common/LoadingSpinner'
 import EmptyState from '../components/common/EmptyState'
 import Modal from '../components/common/Modal'
 import Toast from '../components/common/Toast'
-import { SCHEDULE_CATEGORIES, TRIP_STATUS } from '../constants'
+import { SCHEDULE_CATEGORIES, TRIP_STATUS, CHECKLIST_CATEGORIES, DEFAULT_CHECKLIST } from '../constants'
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, DragOverlay,
+} from '@dnd-kit/core'
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates,
+  useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 export default function TripDetailPage() {
   const { tripId } = useParams()
@@ -17,9 +26,17 @@ export default function TripDetailPage() {
   const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(null)
-  const [viewMode, setViewMode] = useState('timeline') // 'timeline' | 'map'
+  const [viewMode, setViewMode] = useState('timeline') // 'timeline' | 'map' | 'checklist'
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [toast, setToast] = useState(null)
+  const [checklist, setChecklist] = useState([])
+  const [newItem, setNewItem] = useState('')
+  const [activeId, setActiveId] = useState(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   useEffect(() => {
     Promise.allSettled([getTrip(tripId), getSchedules(tripId)])
@@ -28,10 +45,47 @@ export default function TripDetailPage() {
         const s = sRes.status === 'fulfilled' ? sRes.value : []
         setTrip(t)
         setSchedules(s)
-        if (t) setSelectedDate(t.startDate)
+        if (t) {
+          setSelectedDate(t.startDate)
+          setChecklist(t.checklist ?? DEFAULT_CHECKLIST)
+        }
       })
       .finally(() => setLoading(false))
   }, [tripId])
+
+  const handleDragEnd = useCallback(async ({ active, over }) => {
+    setActiveId(null)
+    if (!over || active.id === over.id) return
+    setSchedules(prev => {
+      const date = prev.find(s => s.id === active.id)?.date
+      const dayItems = prev.filter(s => s.date === date)
+      const rest = prev.filter(s => s.date !== date)
+      const oldIdx = dayItems.findIndex(s => s.id === active.id)
+      const newIdx = dayItems.findIndex(s => s.id === over.id)
+      return [...rest, ...arrayMove(dayItems, oldIdx, newIdx)]
+    })
+  }, [])
+
+  const toggleCheck = useCallback(async (id) => {
+    const next = checklist.map(item => item.id === id ? { ...item, checked: !item.checked } : item)
+    setChecklist(next)
+    await updateChecklist(tripId, next)
+  }, [checklist, tripId])
+
+  const addCheckItem = useCallback(async () => {
+    if (!newItem.trim()) return
+    const item = { id: `custom_${Date.now()}`, label: newItem.trim(), category: 'custom', checked: false }
+    const next = [...checklist, item]
+    setChecklist(next)
+    setNewItem('')
+    await updateChecklist(tripId, next)
+  }, [newItem, checklist, tripId])
+
+  const removeCheckItem = useCallback(async (id) => {
+    const next = checklist.filter(item => item.id !== id)
+    setChecklist(next)
+    await updateChecklist(tripId, next)
+  }, [checklist, tripId])
 
   if (loading) return (
     <div style={{ minHeight: '100dvh', background: 'var(--c-bg)' }}>
@@ -128,46 +182,74 @@ export default function TripDetailPage() {
           ))}
         </div>
 
-        {/* Timeline / Map toggle */}
+        {/* View mode tabs */}
         <div style={{ display: 'flex', borderTop: '1px solid var(--c-border)', padding: '0 20px' }}>
           <ViewTab label="일정" icon="view_timeline" active={viewMode === 'timeline'} onClick={() => setViewMode('timeline')} />
           <ViewTab label="지도" icon="map" active={viewMode === 'map'} onClick={() => setViewMode('map')} />
+          <ViewTab label={`체크 ${checklist.filter(i=>i.checked).length}/${checklist.length}`} icon="checklist" active={viewMode === 'checklist'} onClick={() => setViewMode('checklist')} />
         </div>
       </div>
 
       {/* ══ Content ══ */}
       {viewMode === 'timeline' ? (
         <>
-          {/* Day header */}
           {selectedDate && (
             <div style={{ padding: '14px 20px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--fw-bold)', color: 'var(--c-text-1)' }}>{formatDisplayDate(selectedDate)}</p>
+                <p style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--c-text-1)' }}>{formatDisplayDate(selectedDate)}</p>
                 {daySchedules.length > 0 && (
                   <p style={{ fontSize: 'var(--text-xs)', color: 'var(--c-text-3)', marginTop: 2 }}>
-                    일정 {daySchedules.length}개
-                    {daySchedules.some(s => s.cost > 0) && ` · ${fmtCost(daySchedules.reduce((sum, s) => sum + (Number(s.cost) || 0), 0))}`}
+                    일정 {daySchedules.length}개{daySchedules.some(s => s.cost > 0) && ` · ${fmtCost(daySchedules.reduce((sum, s) => sum + (Number(s.cost) || 0), 0))}`}
                   </p>
                 )}
               </div>
+              {daySchedules.length > 0 && (
+                <p style={{ fontSize: 11, color: 'var(--c-text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 13 }}>drag_indicator</span>길게 눌러 순서 변경
+                </p>
+              )}
             </div>
           )}
 
-          {/* Timeline */}
-          <div style={{ padding: '4px 14px 16px' }}>
-            {daySchedules.length === 0 ? (
-              <EmptyState icon="event_note" title="이 날의 일정이 없어요" description="+ 버튼으로 일정을 추가해보세요" />
-            ) : (
-              daySchedules.map((s, idx) => (
-                <TimelineItem
-                  key={s.id} schedule={s} isLast={idx === daySchedules.length - 1}
-                  onEdit={() => navigate(`/trips/${tripId}/schedule/${s.id}/edit`)}
-                  onDelete={() => handleDeleteSchedule(s.id)}
-                />
-              ))
-            )}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={({ active }) => setActiveId(active.id)}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={daySchedules.map(s => s.id)} strategy={verticalListSortingStrategy}>
+              <div style={{ padding: '4px 14px 16px' }}>
+                {daySchedules.length === 0 ? (
+                  <EmptyState icon="event_note" title="이 날의 일정이 없어요" description="+ 버튼으로 일정을 추가해보세요" />
+                ) : (
+                  daySchedules.map((s, idx) => (
+                    <SortableTimelineItem
+                      key={s.id} schedule={s} isLast={idx === daySchedules.length - 1}
+                      onEdit={() => navigate(`/trips/${tripId}/schedule/${s.id}/edit`)}
+                      onDelete={() => handleDeleteSchedule(s.id)}
+                      isDragging={activeId === s.id}
+                    />
+                  ))
+                )}
+              </div>
+            </SortableContext>
+            <DragOverlay>
+              {activeId ? (() => {
+                const s = daySchedules.find(x => x.id === activeId)
+                return s ? <TimelineItem schedule={s} isLast isDragging /> : null
+              })() : null}
+            </DragOverlay>
+          </DndContext>
         </>
+      ) : viewMode === 'checklist' ? (
+        <ChecklistView
+          checklist={checklist}
+          newItem={newItem}
+          onNewItemChange={setNewItem}
+          onAdd={addCheckItem}
+          onToggle={toggleCheck}
+          onRemove={removeCheckItem}
+        />
       ) : (
         <>
           {/* Map view */}
@@ -229,6 +311,104 @@ export default function TripDetailPage() {
 
 /* ── Sub-components ── */
 
+function SortableTimelineItem({ schedule, isLast, onEdit, onDelete, isDragging }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: schedule.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      <TimelineItem
+        schedule={schedule} isLast={isLast}
+        onEdit={onEdit} onDelete={onDelete}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+    </div>
+  )
+}
+
+function ChecklistView({ checklist, newItem, onNewItemChange, onAdd, onToggle, onRemove }) {
+  const categories = Object.entries(CHECKLIST_CATEGORIES)
+  const done = checklist.filter(i => i.checked).length
+  const total = checklist.length
+  const pct = total ? Math.round((done / total) * 100) : 0
+
+  return (
+    <div style={{ padding: '16px' }}>
+      {/* Progress */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-xl)', padding: '16px 18px', marginBottom: 12, boxShadow: 'var(--shadow-xs)', border: '1px solid var(--c-border)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-text-1)' }}>준비 현황</p>
+          <span style={{ fontSize: 22, fontWeight: 900, color: pct === 100 ? '#10B981' : 'var(--c-primary)' }}>{pct}%</span>
+        </div>
+        <div style={{ height: 8, background: 'var(--c-border)', borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? '#10B981' : 'var(--c-primary)', borderRadius: 4, transition: 'width 0.5s ease' }} />
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 6 }}>{done} / {total}개 완료</p>
+      </div>
+
+      {/* Items by category */}
+      {categories.map(([catKey, catInfo]) => {
+        const items = checklist.filter(i => i.category === catKey)
+        if (items.length === 0) return null
+        return (
+          <div key={catKey} style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-xl)', padding: '14px 16px', marginBottom: 10, boxShadow: 'var(--shadow-xs)', border: '1px solid var(--c-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 15, color: catInfo.color, fontVariationSettings: "'FILL' 1" }}>{catInfo.icon}</span>
+              <p style={{ fontSize: 12, fontWeight: 700, color: catInfo.color }}>{catInfo.label}</p>
+            </div>
+            {items.map(item => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--c-border)' }}>
+                <button
+                  onClick={() => onToggle(item.id)}
+                  style={{
+                    width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                    border: `2px solid ${item.checked ? '#10B981' : 'var(--c-border2)'}`,
+                    background: item.checked ? '#10B981' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all var(--t-fast)',
+                  }}
+                >
+                  {item.checked && <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#fff', fontVariationSettings: "'FILL' 1" }}>check</span>}
+                </button>
+                <span style={{ flex: 1, fontSize: 14, color: item.checked ? 'var(--c-text-3)' : 'var(--c-text-1)', textDecoration: item.checked ? 'line-through' : 'none', transition: 'all var(--t-fast)' }}>
+                  {item.label}
+                </span>
+                {catKey === 'custom' && (
+                  <button onClick={() => onRemove(item.id)} style={{ color: 'var(--c-text-3)', padding: 4 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      })}
+
+      {/* Add custom item */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-xl)', padding: '14px 16px', boxShadow: 'var(--shadow-xs)', border: '1px solid var(--c-border)' }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text-3)', marginBottom: 10 }}>항목 추가</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={newItem}
+            onChange={e => onNewItemChange(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && onAdd()}
+            placeholder="추가할 항목 입력"
+            style={{ flex: 1, height: 44, padding: '0 14px', border: '1.5px solid var(--c-border)', borderRadius: 'var(--r-lg)', fontSize: 14, background: 'var(--c-surface2)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none', boxSizing: 'border-box' }}
+          />
+          <button
+            onClick={onAdd}
+            disabled={!newItem.trim()}
+            style={{ height: 44, padding: '0 16px', borderRadius: 'var(--r-lg)', background: newItem.trim() ? 'var(--c-primary)' : 'var(--c-border2)', color: '#fff', fontWeight: 700, fontSize: 14, flexShrink: 0, transition: 'all var(--t-fast)' }}
+          >추가</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ViewTab({ label, icon, active, onClick }) {
   return (
     <button onClick={onClick} style={{
@@ -244,7 +424,7 @@ function ViewTab({ label, icon, active, onClick }) {
   )
 }
 
-function TimelineItem({ schedule, isLast, onEdit, onDelete }) {
+function TimelineItem({ schedule, isLast, onEdit, onDelete, dragHandleProps }) {
   const cat = SCHEDULE_CATEGORIES.find(c => c.key === schedule.category) ?? SCHEDULE_CATEGORIES.at(-1)
   return (
     <div style={{ display: 'flex' }}>
@@ -267,6 +447,9 @@ function TimelineItem({ schedule, isLast, onEdit, onDelete }) {
         <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-lg)', padding: '12px 14px', boxShadow: '0 2px 12px rgba(15,23,42,0.07)', border: `1px solid ${cat.color}20` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+              {dragHandleProps && (
+                <span {...dragHandleProps} className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--c-border2)', cursor: 'grab', flexShrink: 0, touchAction: 'none' }}>drag_indicator</span>
+              )}
               <div style={{ width: 28, height: 28, borderRadius: 8, background: cat.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span className="material-symbols-outlined" style={{ fontSize: 15, color: cat.color, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
               </div>

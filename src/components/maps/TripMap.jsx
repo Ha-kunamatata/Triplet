@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
-import { loadGoogleMaps, MAP_STYLE } from '../../utils/googleMaps'
+import { loadKakaoMaps } from '../../utils/kakaoMaps'
 import { SCHEDULE_CATEGORIES } from '../../constants'
 
 export default function TripMap({ schedules = [], height = 400 }) {
   const mapRef = useRef(null)
-  const mapInstanceRef = useRef(null)
-  const markersRef = useRef([])
-  const polylineRef = useRef(null)
-  const [status, setStatus] = useState('idle') // idle | loading | ready | no-key | no-coords | error
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+  const [status, setStatus] = useState('idle')
+  const apiKey = import.meta.env.VITE_KAKAO_MAPS_API_KEY
 
   const geoSchedules = useMemo(
     () => schedules.filter(s => s.lat && s.lng),
@@ -20,81 +17,77 @@ export default function TripMap({ schedules = [], height = 400 }) {
     if (geoSchedules.length === 0) { setStatus('no-coords'); return }
     setStatus('loading')
 
-    loadGoogleMaps(apiKey)
+    loadKakaoMaps(apiKey)
       .then(() => {
         if (!mapRef.current) return
 
-        const bounds = new window.google.maps.LatLngBounds()
-        geoSchedules.forEach(s => bounds.extend({ lat: s.lat, lng: s.lng }))
+        const kakao = window.kakao.maps
+        const center = new kakao.LatLng(geoSchedules[0].lat, geoSchedules[0].lng)
+        const map = new kakao.Map(mapRef.current, { center, level: 5 })
 
-        const map = new window.google.maps.Map(mapRef.current, {
-          mapTypeControl: false,
-          fullscreenControl: false,
-          streetViewControl: false,
-          zoomControl: true,
-          styles: MAP_STYLE,
-          gestureHandling: 'cooperative',
-        })
-        map.fitBounds(bounds, { top: 60, right: 30, bottom: 30, left: 30 })
-        mapInstanceRef.current = map
+        // 범위 자동 조정
+        if (geoSchedules.length > 1) {
+          const bounds = new kakao.LatLngBounds()
+          geoSchedules.forEach(s => bounds.extend(new kakao.LatLng(s.lat, s.lng)))
+          map.setBounds(bounds)
+        }
 
-        // Clear previous markers
-        markersRef.current.forEach(m => m.setMap(null))
-        markersRef.current = []
-        if (polylineRef.current) polylineRef.current.setMap(null)
-
-        // Add numbered markers
+        // 번호 마커 (CustomOverlay)
         geoSchedules.forEach((s, idx) => {
           const cat = SCHEDULE_CATEGORIES.find(c => c.key === s.category) ?? SCHEDULE_CATEGORIES.at(-1)
+          const pos = new kakao.LatLng(s.lat, s.lng)
 
-          const marker = new window.google.maps.Marker({
-            position: { lat: s.lat, lng: s.lng },
-            map,
-            title: s.title,
-            label: { text: String(idx + 1), color: '#fff', fontWeight: 'bold', fontSize: '11px' },
-            icon: {
-              path: window.google.maps.SymbolPath.CIRCLE,
-              fillColor: cat.color,
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeWeight: 2.5,
-              scale: 14,
-            },
-            zIndex: geoSchedules.length - idx,
+          const content = `
+            <div style="
+              width:28px;height:28px;border-radius:50%;
+              background:${cat.color};color:#fff;
+              display:flex;align-items:center;justify-content:center;
+              font-size:12px;font-weight:700;font-family:-apple-system,sans-serif;
+              box-shadow:0 2px 6px rgba(0,0,0,0.3);
+              border:2.5px solid #fff;
+              cursor:pointer;
+            ">${idx + 1}</div>
+          `
+
+          const overlay = new kakao.CustomOverlay({
+            position: pos,
+            content,
+            yAnchor: 1.2,
           })
+          overlay.setMap(map)
 
+          // 말풍선 InfoWindow
           const infoContent = `
-            <div style="font-family:-apple-system,sans-serif;padding:2px 4px;min-width:120px">
-              <b style="font-size:13px;color:#0F172A">${s.title}</b>
-              ${s.startTime ? `<p style="font-size:11px;color:#64748B;margin-top:3px">🕐 ${s.startTime}${s.endTime ? ' – ' + s.endTime : ''}</p>` : ''}
-              ${s.place ? `<p style="font-size:11px;color:#64748B;margin-top:2px">📍 ${s.place}</p>` : ''}
-              ${s.cost > 0 ? `<p style="font-size:12px;color:#3B82F6;font-weight:700;margin-top:4px">${Number(s.cost).toLocaleString('ko-KR')}원</p>` : ''}
+            <div style="
+              padding:10px 13px;min-width:140px;max-width:200px;
+              font-family:-apple-system,sans-serif;
+              background:#fff;border-radius:10px;
+              box-shadow:0 3px 12px rgba(0,0,0,0.15);
+            ">
+              <b style="font-size:13px;color:#0F172A;display:block;margin-bottom:4px">${s.title}</b>
+              ${s.startTime ? `<span style="font-size:11px;color:#64748B">🕐 ${s.startTime}${s.endTime ? ' – ' + s.endTime : ''}</span><br>` : ''}
+              ${s.place ? `<span style="font-size:11px;color:#64748B">📍 ${s.place}</span><br>` : ''}
+              ${s.cost > 0 ? `<span style="font-size:12px;color:#3B82F6;font-weight:700">${Number(s.cost).toLocaleString('ko-KR')}원</span>` : ''}
             </div>
           `
-          const infoWindow = new window.google.maps.InfoWindow({ content: infoContent })
-          marker.addListener('click', () => {
-            markersRef.current.forEach(m => m.infoWindow?.close())
-            infoWindow.open(map, marker)
-          })
-          marker.infoWindow = infoWindow
-          markersRef.current.push(marker)
+          const infoWindow = new kakao.InfoWindow({ content: infoContent, removable: true })
+
+          overlay.getContent && overlay.getContent()
+          const el = overlay.getContent?.()
+          if (el && typeof el === 'object') {
+            el.addEventListener?.('click', () => infoWindow.open(map, new kakao.Marker({ position: pos })))
+          }
         })
 
-        // Route polyline with arrows
+        // 경로 폴리라인
         if (geoSchedules.length > 1) {
-          const path = geoSchedules.map(s => ({ lat: s.lat, lng: s.lng }))
-          polylineRef.current = new window.google.maps.Polyline({
-            path,
-            geodesic: true,
+          new kakao.Polyline({
+            map,
+            path: geoSchedules.map(s => new kakao.LatLng(s.lat, s.lng)),
+            strokeWeight: 3,
             strokeColor: '#3B82F6',
             strokeOpacity: 0.75,
-            strokeWeight: 3,
-            map,
-            icons: [{
-              icon: { path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, fillColor: '#3B82F6', fillOpacity: 1, strokeWeight: 0 },
-              offset: '50%',
-              repeat: '120px',
-            }],
+            strokeStyle: 'solid',
           })
         }
 
@@ -103,7 +96,6 @@ export default function TripMap({ schedules = [], height = 400 }) {
       .catch(() => setStatus('error'))
   }, [apiKey, geoSchedules])
 
-  // ── Placeholder states ──
   if (status === 'no-key') return <MapNoKey />
   if (status === 'no-coords') return <MapNoCoords schedules={schedules} />
   if (status === 'error') return <MapError />
@@ -124,17 +116,14 @@ export default function TripMap({ schedules = [], height = 400 }) {
 
 function MapNoKey() {
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '32px 24px', background: '#F8FAFC', textAlign: 'center', gap: 10,
-    }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', background: '#F8FAFC', textAlign: 'center', gap: 10 }}>
       <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--c-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span className="material-symbols-outlined" style={{ fontSize: 28, color: 'var(--c-primary)' }}>map</span>
       </div>
-      <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-text-1)' }}>Google Maps 설정 필요</p>
+      <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-text-1)' }}>카카오맵 설정 필요</p>
       <p style={{ fontSize: 13, color: 'var(--c-text-3)', lineHeight: 1.6 }}>
         GitHub 저장소 Settings → Secrets에<br />
-        <code style={{ background: 'var(--c-surface2)', padding: '2px 6px', borderRadius: 4, fontSize: 12 }}>VITE_GOOGLE_MAPS_API_KEY</code> 를 추가하세요.
+        <code style={{ background: 'var(--c-surface2)', padding: '2px 6px', borderRadius: 4, fontSize: 12 }}>VITE_KAKAO_MAPS_API_KEY</code> 를 추가하세요.
       </p>
     </div>
   )
@@ -142,10 +131,7 @@ function MapNoKey() {
 
 function MapNoCoords({ schedules }) {
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '32px 24px', background: '#F8FAFC', textAlign: 'center', gap: 10,
-    }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', background: '#F8FAFC', textAlign: 'center', gap: 10 }}>
       <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--c-surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span className="material-symbols-outlined" style={{ fontSize: 28, color: 'var(--c-text-3)' }}>location_off</span>
       </div>
@@ -154,9 +140,7 @@ function MapNoCoords({ schedules }) {
         일정 추가 시 장소 검색을 통해<br />위치를 등록하면 지도에 표시됩니다.
       </p>
       {schedules.length > 0 && (
-        <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 4 }}>
-          현재 {schedules.length}개 일정에 위치 정보가 없습니다
-        </p>
+        <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 4 }}>현재 {schedules.length}개 일정에 위치 정보가 없습니다</p>
       )}
     </div>
   )

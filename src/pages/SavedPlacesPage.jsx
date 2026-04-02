@@ -48,6 +48,7 @@ export default function SavedPlacesPage() {
 
   return (
     <AppLayout>
+      <div style={{ minHeight: '100%' }}>
       {/* ── Header ── */}
       <div style={{ background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)', padding: '20px 20px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -207,6 +208,7 @@ export default function SavedPlacesPage() {
         </Modal>
       )}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </div>
     </AppLayout>
   )
 }

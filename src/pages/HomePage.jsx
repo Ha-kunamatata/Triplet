@@ -35,6 +35,7 @@ export default function HomePage() {
 
   return (
     <AppLayout>
+      <div style={{ minHeight: '100%' }}>
       {/* ── Top header ── */}
       <div style={{ background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)', padding: '20px 20px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -132,6 +133,7 @@ export default function HomePage() {
             {filtered.map(t => <TripCard key={t.id} trip={t} />)}
           </div>
         )}
+      </div>
       </div>
     </AppLayout>
   )

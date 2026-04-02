@@ -139,6 +139,13 @@ img { max-width: 100%; display: block; }
     flex: 1;
     min-width: 0;
     padding-bottom: 0;
+    display: flex;
+    justify-content: center;
+    background: var(--c-bg);
+  }
+  .app-main > * {
+    width: 100%;
+    max-width: var(--content-max);
   }
 }
 

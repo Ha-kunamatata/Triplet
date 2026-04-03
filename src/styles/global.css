@@ -322,7 +322,66 @@ img { max-width: 100%; display: block; }
 /* ═══════════════════════════════════════════
    Utility
 ═══════════════════════════════════════════ */
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+/* ═══════════════════════════════════════════
+   Dark Mode (시스템 설정 자동 감지)
+═══════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-primary:       #60A5FA;
+    --c-primary-hover: #3B82F6;
+    --c-primary-light: #1E3A5F;
+    --c-primary-dim:   rgba(96,165,250,0.15);
+
+    --c-accent:  #FB923C;
+    --c-success: #34D399;
+    --c-warning: #FBBF24;
+    --c-error:   #F87171;
+
+    --c-bg:       #0B1120;
+    --c-surface:  #1A2333;
+    --c-surface2: #141C2B;
+    --c-border:   #2A3547;
+    --c-border2:  #3A4A61;
+
+    --c-text-1:   #F1F5F9;
+    --c-text-2:   #8DA0B9;
+    --c-text-3:   #566880;
+    --c-text-inv: #0F172A;
+
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.25);
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.15);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.2);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.2);
+    --shadow-primary: 0 4px 14px rgba(96,165,250,0.35);
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, #1a2333 25%, #243145 50%, #1a2333 75%);
+    background-size: 200% 100%;
+  }
+}
+
+/* ── 다크모드 수동 토글 클래스 ── */
+.dark {
+  --c-primary:       #60A5FA;
+  --c-primary-hover: #3B82F6;
+  --c-primary-light: #1E3A5F;
+  --c-primary-dim:   rgba(96,165,250,0.15);
+  --c-accent:  #FB923C;
+  --c-success: #34D399;
+  --c-warning: #FBBF24;
+  --c-error:   #F87171;
+  --c-bg:       #0B1120;
+  --c-surface:  #1A2333;
+  --c-surface2: #141C2B;
+  --c-border:   #2A3547;
+  --c-border2:  #3A4A61;
+  --c-text-1:   #F1F5F9;
+  --c-text-2:   #8DA0B9;
+  --c-text-3:   #566880;
+  --c-text-inv: #0F172A;
+}
+
 .flex     { display: flex; }
 .flex-col { display: flex; flex-direction: column; }
 .items-center { align-items: center; }

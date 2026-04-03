@@ -186,13 +186,21 @@ export default function TripDetailPage() {
       {/* ══ Day tabs (sticky) ══ */}
       <div style={{ background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)', position: 'sticky', top: 0, zIndex: 40 }}>
         <div style={{ display: 'flex', overflowX: 'auto', padding: '8px 8px', gap: 2, scrollbarWidth: 'none' }}>
-          {dates.map((date, i) => (
-            <DayTab key={date} date={date} dayNumber={i + 1}
-              isSelected={selectedDate === date}
-              count={schedules.filter(s => s.date === date).length}
-              onClick={() => setSelectedDate(date)}
-            />
-          ))}
+          {dates.map((date, i) => {
+            const dayItemCount = schedules.filter(s => s.date === date).length
+              + tripItems.filter(it => it.date === date).length
+            const hasFlight = tripItems.some(it => it.type === ITEM_TYPES.FLIGHT && it.date === date)
+            const hasStay   = tripItems.some(it => it.type === ITEM_TYPES.STAY   && (it.checkIn === date || it.checkOut === date))
+            return (
+              <DayTab key={date} date={date} dayNumber={i + 1}
+                isSelected={selectedDate === date}
+                count={dayItemCount}
+                hasFlight={hasFlight}
+                hasStay={hasStay}
+                onClick={() => setSelectedDate(date)}
+              />
+            )
+          })}
         </div>
 
         {/* View mode tabs */}
@@ -206,23 +214,29 @@ export default function TripDetailPage() {
       {/* ══ Content ══ */}
       {viewMode === 'timeline' ? (
         <>
-          {selectedDate && (
-            <div style={{ padding: '14px 20px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--c-text-1)' }}>{formatDisplayDate(selectedDate)}</p>
+          {selectedDate && (() => {
+            const dayCost = [
+              ...daySchedules.map(s => Number(s.cost) || 0),
+              ...dayTripItems.map(i => Number(i.cost) || 0),
+            ].reduce((a, b) => a + b, 0)
+            const dayTotal = daySchedules.length + dayTripItems.length
+            return (
+              <div style={{ padding: '12px 18px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--c-border)' }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-text-1)' }}>{formatDisplayDate(selectedDate)}</p>
+                  <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 2 }}>
+                    {dayTotal > 0 ? `일정 ${dayTotal}개` : '일정 없음'}
+                    {dayCost > 0 && <span style={{ color: 'var(--c-primary)', fontWeight: 700 }}> · {fmtCost(dayCost)}</span>}
+                  </p>
+                </div>
                 {daySchedules.length > 0 && (
-                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--c-text-3)', marginTop: 2 }}>
-                    일정 {daySchedules.length}개{daySchedules.some(s => s.cost > 0) && ` · ${fmtCost(daySchedules.reduce((sum, s) => sum + (Number(s.cost) || 0), 0))}`}
+                  <p style={{ fontSize: 11, color: 'var(--c-text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 12 }}>drag_indicator</span>길게 눌러 순서 변경
                   </p>
                 )}
               </div>
-              {daySchedules.length > 0 && (
-                <p style={{ fontSize: 11, color: 'var(--c-text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 13 }}>drag_indicator</span>길게 눌러 순서 변경
-                </p>
-              )}
-            </div>
-          )}
+            )
+          })()}
 
           {/* 새 tripItems (항공편, 숙소, 이동 등) */}
           {dayTripItems.length > 0 && (

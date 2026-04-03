@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getSavedPlaces, savePlace, deleteSavedPlace } from '../firebase/firestore'
 import { SCHEDULE_CATEGORIES } from '../constants'
-import AppLayout from '../components/layout/AppLayout'
 import EmptyState from '../components/common/EmptyState'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import Modal from '../components/common/Modal'
@@ -47,7 +46,6 @@ export default function SavedPlacesPage() {
   const usedCategories = [ALL, ...SCHEDULE_CATEGORIES.filter(c => places.some(p => p.category === c.key))]
 
   return (
-    <AppLayout>
       <div style={{ minHeight: '100%' }}>
       {/* ── Header ── */}
       <div style={{ background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)', padding: '20px 20px 0' }}>
@@ -209,7 +207,6 @@ export default function SavedPlacesPage() {
       )}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       </div>
-    </AppLayout>
   )
 }
 

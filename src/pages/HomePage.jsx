@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getTrips } from '../firebase/firestore'
 import { calcTripStatus, getDDay, formatShortDate, getTripDuration } from '../utils/dateUtils'
-import AppLayout from '../components/layout/AppLayout'
 import TripCard from '../components/trip/TripCard'
 import { TripCardSkeleton } from '../components/common/LoadingSpinner'
 import EmptyState from '../components/common/EmptyState'
@@ -34,7 +33,6 @@ export default function HomePage() {
   const filtered = filter === 'all' ? trips : trips.filter(t => calcTripStatus(t.startDate, t.endDate) === filter)
 
   return (
-    <AppLayout>
       <div style={{ minHeight: '100%' }}>
       {/* ── Top header ── */}
       <div style={{ background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)', padding: '20px 20px 0' }}>
@@ -135,7 +133,6 @@ export default function HomePage() {
         )}
       </div>
       </div>
-    </AppLayout>
   )
 }
 

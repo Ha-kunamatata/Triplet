@@ -23,7 +23,7 @@ function applyTheme(mode) {
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'system'
+    return localStorage.getItem('theme') || 'light'
   })
 
   // Resolve whether screen is currently dark

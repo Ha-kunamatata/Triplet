@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { getTrip, getSchedules, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem, updateTripBudgetData } from '../firebase/firestore'
 import { generateDateRange, formatDisplayDate, formatShortDate, getDDay, calcTripStatus } from '../utils/dateUtils'
 import { getItemSortTime } from '../utils/tripItemUtils'
@@ -24,12 +24,18 @@ import { CSS } from '@dnd-kit/utilities'
 export default function TripDetailPage() {
   const { tripId } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [trip, setTrip] = useState(null)
   const [schedules, setSchedules] = useState([])
   const [tripItems, setTripItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(null)
-  const [viewMode, setViewMode] = useState('timeline') // 'timeline' | 'map' | 'checklist' | 'budget'
+  // viewMode는 URL ?view= 파라미터와 동기화 (하단 탭바에서 전환 가능)
+  const viewMode = searchParams.get('view') || 'timeline'
+  const setViewMode = useCallback(
+    (mode) => setSearchParams({ view: mode }, { replace: true }),
+    [setSearchParams],
+  )
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [toast, setToast] = useState(null)
   const [checklist, setChecklist] = useState([])

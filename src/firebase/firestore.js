@@ -118,6 +118,35 @@ export async function deleteSavedPlace(placeId) {
 }
 
 // ──────────────────────────────────────────
+// TripItems (typed: FLIGHT, STAY, PLACE, TRANSPORT, MEMO)
+export async function addTripItem(tripId, data) {
+  const ref = await addDoc(collection(db, 'tripItems'), {
+    ...data,
+    tripId,
+    createdAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export async function getTripItems(tripId) {
+  const q = query(collection(db, 'tripItems'), where('tripId', '==', tripId))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function getTripItem(itemId) {
+  const snap = await getDoc(doc(db, 'tripItems', itemId))
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null
+}
+
+export async function updateTripItem(itemId, data) {
+  await updateDoc(doc(db, 'tripItems', itemId), { ...data, updatedAt: serverTimestamp() })
+}
+
+export async function deleteTripItem(itemId) {
+  await deleteDoc(doc(db, 'tripItems', itemId))
+}
+
 // 여행 일기 (Diary)
 // ──────────────────────────────────────────
 

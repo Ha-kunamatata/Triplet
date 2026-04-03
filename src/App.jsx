@@ -39,6 +39,8 @@ export default function App() {
         <Route path="/trips/:tripId" element={<PrivateRoute><TripDetailPage /></PrivateRoute>} />
         <Route path="/trips/:tripId/schedule/add" element={<PrivateRoute><AddSchedulePage /></PrivateRoute>} />
         <Route path="/trips/:tripId/schedule/:scheduleId/edit" element={<PrivateRoute><AddSchedulePage /></PrivateRoute>} />
+        <Route path="/trips/:tripId/item/add" element={<PrivateRoute><AddSchedulePage /></PrivateRoute>} />
+        <Route path="/trips/:tripId/item/:itemId/edit" element={<PrivateRoute><AddSchedulePage /></PrivateRoute>} />
         <Route path="/trips/:tripId/diary" element={<PrivateRoute><DiaryListPage /></PrivateRoute>} />
         <Route path="/trips/:tripId/diary/new" element={<PrivateRoute><DiaryEditPage /></PrivateRoute>} />
         <Route path="/trips/:tripId/diary/:diaryId/edit" element={<PrivateRoute><DiaryEditPage /></PrivateRoute>} />

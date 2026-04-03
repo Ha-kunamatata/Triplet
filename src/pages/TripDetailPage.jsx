@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getTrip, getSchedules, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem } from '../firebase/firestore'
+import { getTrip, getSchedules, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem, updateTripBudgetData } from '../firebase/firestore'
 import { generateDateRange, formatDisplayDate, formatShortDate, getDDay, calcTripStatus } from '../utils/dateUtils'
 import { getItemSortTime } from '../utils/tripItemUtils'
 import DayTab from '../components/schedule/DayTab'
@@ -29,12 +29,16 @@ export default function TripDetailPage() {
   const [tripItems, setTripItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(null)
-  const [viewMode, setViewMode] = useState('timeline') // 'timeline' | 'map' | 'checklist'
+  const [viewMode, setViewMode] = useState('timeline') // 'timeline' | 'map' | 'checklist' | 'budget'
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [toast, setToast] = useState(null)
   const [checklist, setChecklist] = useState([])
   const [newItem, setNewItem] = useState('')
   const [activeId, setActiveId] = useState(null)
+  const [budget, setBudget] = useState(0)
+  const [expenses, setExpenses] = useState([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -53,6 +57,8 @@ export default function TripDetailPage() {
         if (t) {
           setSelectedDate(t.startDate)
           setChecklist(t.checklist ?? DEFAULT_CHECKLIST)
+          setBudget(t.budget ?? 0)
+          setExpenses(t.expenses ?? [])
         }
       })
       .finally(() => setLoading(false))
@@ -110,10 +116,14 @@ export default function TripDetailPage() {
   )
 
   const dates = generateDateRange(trip.startDate, trip.endDate)
-  // 기존 schedules + 새 tripItems 합산 (날짜 기준)
-  const daySchedules = schedules.filter(s => s.date === selectedDate)
+  // 검색 필터 적용
+  const q = searchQuery.toLowerCase().trim()
+  const daySchedules = schedules
+    .filter(s => s.date === selectedDate)
+    .filter(s => !q || (s.title ?? '').toLowerCase().includes(q))
   const dayTripItems = tripItems
     .filter(item => item.date === selectedDate)
+    .filter(item => !q || [item.title, item.name, item.flightNumber, item.fromName].some(v => v?.toLowerCase().includes(q)))
     .sort((a, b) => getItemSortTime(a).localeCompare(getItemSortTime(b)))
   const totalCost = [
     ...schedules.map(s => Number(s.cost) || 0),
@@ -203,12 +213,38 @@ export default function TripDetailPage() {
           })}
         </div>
 
-        {/* View mode tabs */}
-        <div style={{ display: 'flex', borderTop: '1px solid var(--c-border)', padding: '0 20px' }}>
-          <ViewTab label="일정" icon="view_timeline" active={viewMode === 'timeline'} onClick={() => setViewMode('timeline')} />
-          <ViewTab label="지도" icon="map" active={viewMode === 'map'} onClick={() => setViewMode('map')} />
-          <ViewTab label={`체크 ${checklist.filter(i=>i.checked).length}/${checklist.length}`} icon="checklist" active={viewMode === 'checklist'} onClick={() => setViewMode('checklist')} />
+        {/* View mode tabs + 검색 */}
+        <div style={{ display: 'flex', borderTop: '1px solid var(--c-border)', padding: '0 12px 0 20px', alignItems: 'center' }}>
+          <ViewTab label="일정" icon="view_timeline" active={viewMode === 'timeline'} onClick={() => { setViewMode('timeline'); setShowSearch(false) }} />
+          <ViewTab label="지도" icon="map" active={viewMode === 'map'} onClick={() => { setViewMode('map'); setShowSearch(false) }} />
+          <ViewTab label={`체크 ${checklist.filter(i=>i.checked).length}/${checklist.length}`} icon="checklist" active={viewMode === 'checklist'} onClick={() => { setViewMode('checklist'); setShowSearch(false) }} />
+          <ViewTab label="예산" icon="payments" active={viewMode === 'budget'} onClick={() => { setViewMode('budget'); setShowSearch(false) }} />
+          <div style={{ marginLeft: 'auto' }}>
+            <button onClick={() => { setShowSearch(p => !p); setSearchQuery('') }}
+              style={{ width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showSearch ? 'var(--c-primary)' : 'var(--c-text-3)', background: showSearch ? 'var(--c-primary-light)' : 'transparent', transition: 'all 0.15s' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>search</span>
+            </button>
+          </div>
         </div>
+        {showSearch && (
+          <div style={{ padding: '8px 16px 10px', borderTop: '1px solid var(--c-border)' }}>
+            <div style={{ position: 'relative' }}>
+              <span className="material-symbols-outlined" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: 'var(--c-text-3)' }}>search</span>
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="일정 이름, 장소 검색..."
+                style={{ width: '100%', height: 38, paddingLeft: 36, paddingRight: 36, border: '1.5px solid var(--c-primary)', borderRadius: 10, fontSize: 14, background: 'var(--c-surface2)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none', boxSizing: 'border-box' }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-text-3)', display: 'flex', alignItems: 'center' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ══ Content ══ */}
@@ -286,6 +322,17 @@ export default function TripDetailPage() {
             </DragOverlay>
           </DndContext>
         </>
+      ) : viewMode === 'budget' ? (
+        <BudgetView
+          budget={budget}
+          expenses={expenses}
+          onSave={async (newBudget, newExpenses) => {
+            setBudget(newBudget)
+            setExpenses(newExpenses)
+            await updateTripBudgetData(tripId, { budget: newBudget, expenses: newExpenses })
+            setToast({ message: '저장되었습니다.' })
+          }}
+        />
       ) : viewMode === 'checklist' ? (
         <ChecklistView
           checklist={checklist}
@@ -733,6 +780,226 @@ const floatBtn = { width: 38, height: 38, borderRadius: '50%', background: 'rgba
 function getCoverGradient(emoji) {
   const m = { '✈️':['#60A5FA','#2563EB'],'🗺️':['#34D399','#059669'],'🏖️':['#FBBF24','#F97316'],'🏔️':['#6EE7B7','#10B981'],'🌆':['#A78BFA','#7C3AED'],'🌸':['#F9A8D4','#EC4899'],'🍜':['#FCD34D','#D97706'],'🎡':['#67E8F9','#0891B2'],'🏰':['#D4A574','#92400E'],'🌅':['#FCA5A5','#EF4444'],'🎭':['#C4B5FD','#8B5CF6'],'🚂':['#94A3B8','#475569'] }
   return m[emoji] ?? ['#93C5FD','#3B82F6']
+}
+
+/* ────────────────────────────────────────────────────────
+   BudgetView (Phase 7)
+──────────────────────────────────────────────────────── */
+
+const BUDGET_CATS = [
+  { key: 'flight',    label: '항공',  icon: 'flight',         color: '#D4537E' },
+  { key: 'hotel',     label: '숙소',  icon: 'hotel',          color: '#378ADD' },
+  { key: 'food',      label: '식비',  icon: 'restaurant',     color: '#EF9F27' },
+  { key: 'tour',      label: '관광',  icon: 'photo_camera',   color: '#1D9E75' },
+  { key: 'shopping',  label: '쇼핑',  icon: 'shopping_bag',   color: '#EC4899' },
+  { key: 'transport', label: '교통',  icon: 'directions_car', color: '#7C3AED' },
+  { key: 'other',     label: '기타',  icon: 'more_horiz',     color: '#94A3B8' },
+]
+
+function BudgetView({ budget: initBudget, expenses: initExpenses, onSave }) {
+  const [budget,     setBudgetLocal] = useState(initBudget)
+  const [expenses,   setExpenses]    = useState(initExpenses)
+  const [editBudget, setEditBudget]  = useState(false)
+  const [budgetInput, setBudgetInput] = useState(String(initBudget || ''))
+  const [showForm,   setShowForm]    = useState(false)
+  const [form, setForm] = useState({ category: 'food', label: '', amount: '', date: '', note: '' })
+
+  const totalSpent = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0)
+  const pct        = budget > 0 ? Math.min(100, Math.round((totalSpent / budget) * 100)) : 0
+  const overBudget = totalSpent > budget && budget > 0
+  const barColor   = pct >= 100 ? '#EF4444' : pct >= 80 ? '#F59E0B' : '#10B981'
+
+  function saveBudget() {
+    const n = Number(budgetInput.replace(/,/g, '')) || 0
+    setBudgetLocal(n)
+    setEditBudget(false)
+    onSave(n, expenses)
+  }
+
+  function addExpense() {
+    if (!form.label || !form.amount) return
+    const newExp = { id: `exp_${Date.now()}`, ...form, amount: Number(form.amount) || 0 }
+    const next = [...expenses, newExp]
+    setExpenses(next)
+    setShowForm(false)
+    setForm({ category: 'food', label: '', amount: '', date: '', note: '' })
+    onSave(budget, next)
+  }
+
+  function removeExpense(id) {
+    const next = expenses.filter(e => e.id !== id)
+    setExpenses(next)
+    onSave(budget, next)
+  }
+
+  return (
+    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+      {/* ── 예산 설정 카드 ── */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 16, padding: '16px 18px', border: '1px solid var(--c-border)', boxShadow: '0 1px 8px rgba(15,23,42,0.06)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)' }}>총 예산</p>
+          {editBudget ? (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                autoFocus
+                value={budgetInput}
+                onChange={e => setBudgetInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveBudget()}
+                placeholder="예산 입력"
+                type="number"
+                style={{ width: 130, height: 36, padding: '0 12px', border: '1.5px solid var(--c-primary)', borderRadius: 10, fontSize: 14, outline: 'none', background: 'var(--c-surface2)', color: 'var(--c-text-1)', fontFamily: 'var(--font)' }}
+              />
+              <button onClick={saveBudget} style={{ padding: '7px 14px', background: 'var(--c-primary)', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 700 }}>저장</button>
+            </div>
+          ) : (
+            <button onClick={() => { setEditBudget(true); setBudgetInput(String(budget || '')) }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 14, color: budget ? 'var(--c-text-2)' : 'var(--c-primary)', background: 'var(--c-surface2)', padding: '6px 14px', borderRadius: 10, fontWeight: 600 }}>
+              {budget > 0 ? `${budget.toLocaleString('ko-KR')}원` : '+ 예산 설정'}
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>edit</span>
+            </button>
+          )}
+        </div>
+
+        {/* 진행 바 */}
+        {budget > 0 && (
+          <>
+            <div style={{ height: 10, background: 'var(--c-border)', borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
+              <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 5, transition: 'width 0.5s ease' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--c-text-3)' }}>
+              <span>지출 <b style={{ color: barColor }}>{totalSpent.toLocaleString('ko-KR')}원</b></span>
+              <span style={{ fontWeight: 700, color: barColor }}>{pct}%</span>
+              <span>{overBudget ? <span style={{ color: '#EF4444' }}>초과 {(totalSpent - budget).toLocaleString('ko-KR')}원</span> : `남은 예산 ${(budget - totalSpent).toLocaleString('ko-KR')}원`}</span>
+            </div>
+          </>
+        )}
+        {budget === 0 && (
+          <p style={{ fontSize: 13, color: 'var(--c-text-3)', textAlign: 'center', padding: '8px 0' }}>예산을 설정하면 지출 현황을 한눈에 볼 수 있어요</p>
+        )}
+      </div>
+
+      {/* ── 카테고리별 지출 ── */}
+      {expenses.length > 0 && (
+        <div style={{ background: 'var(--c-surface)', borderRadius: 16, padding: '16px 18px', border: '1px solid var(--c-border)', boxShadow: '0 1px 8px rgba(15,23,42,0.06)' }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)', marginBottom: 14 }}>카테고리별 지출</p>
+          {BUDGET_CATS.map(cat => {
+            const catTotal = expenses.filter(e => e.category === cat.key).reduce((s, e) => s + (Number(e.amount) || 0), 0)
+            if (catTotal === 0) return null
+            const catPct = totalSpent > 0 ? Math.round((catTotal / totalSpent) * 100) : 0
+            return (
+              <div key={cat.key} style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: 8, background: cat.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 14, color: cat.color, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text-2)' }}>{cat.label}</span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-1)' }}>{catTotal.toLocaleString('ko-KR')}원</span>
+                    <span style={{ fontSize: 11, color: 'var(--c-text-3)', marginLeft: 6 }}>{catPct}%</span>
+                  </div>
+                </div>
+                <div style={{ height: 5, background: 'var(--c-border)', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${catPct}%`, background: cat.color, borderRadius: 3, transition: 'width 0.5s' }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── 지출 추가 버튼 / 폼 ── */}
+      {!showForm ? (
+        <button onClick={() => setShowForm(true)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px', background: 'var(--c-primary)', color: '#fff', borderRadius: 14, fontSize: 15, fontWeight: 700, boxShadow: 'var(--shadow-primary)' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>add</span>
+          지출 추가
+        </button>
+      ) : (
+        <div style={{ background: 'var(--c-surface)', borderRadius: 16, padding: '16px 18px', border: '1.5px solid var(--c-primary)', boxShadow: '0 4px 16px rgba(59,130,246,0.12)' }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-primary)', marginBottom: 14 }}>지출 추가</p>
+
+          {/* 카테고리 선택 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+            {BUDGET_CATS.map(cat => (
+              <button key={cat.key} type="button"
+                onClick={() => setForm(p => ({ ...p, category: cat.key }))}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, fontSize: 12,
+                  background: form.category === cat.key ? cat.color + '18' : 'var(--c-surface2)',
+                  border: `1.5px solid ${form.category === cat.key ? cat.color : 'transparent'}`,
+                  color: form.category === cat.key ? cat.color : 'var(--c-text-3)',
+                  fontWeight: form.category === cat.key ? 700 : 500,
+                }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 13, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { key: 'label',  label: '내용 *',   placeholder: '예) KE907 항공료', type: 'text' },
+              { key: 'amount', label: '금액 *',   placeholder: '0', type: 'number' },
+              { key: 'date',   label: '날짜',     placeholder: '', type: 'date' },
+              { key: 'note',   label: '메모',     placeholder: '상세 메모', type: 'text' },
+            ].map(({ key, label, placeholder, type }) => (
+              <div key={key}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-text-3)', display: 'block', marginBottom: 5 }}>{label}</label>
+                <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  style={{ width: '100%', height: 42, padding: '0 12px', border: '1.5px solid var(--c-border)', borderRadius: 10, fontSize: 14, background: 'var(--c-surface2)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: '12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: 'var(--c-surface2)', color: 'var(--c-text-2)' }}>취소</button>
+            <button onClick={addExpense} disabled={!form.label || !form.amount}
+              style={{ flex: 2, padding: '12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: form.label && form.amount ? 'var(--c-primary)' : 'var(--c-border2)', color: '#fff' }}>
+              추가
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 지출 목록 ── */}
+      {expenses.length > 0 && (
+        <div style={{ background: 'var(--c-surface)', borderRadius: 16, border: '1px solid var(--c-border)', overflow: 'hidden', boxShadow: '0 1px 8px rgba(15,23,42,0.06)' }}>
+          <div style={{ padding: '14px 18px 10px', borderBottom: '1px solid var(--c-border)' }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)' }}>지출 내역</p>
+          </div>
+          {[...expenses].reverse().map((exp, i) => {
+            const cat = BUDGET_CATS.find(c => c.key === exp.category) ?? BUDGET_CATS.at(-1)
+            return (
+              <div key={exp.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < expenses.length - 1 ? '1px solid var(--c-border)' : 'none' }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: cat.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16, color: cat.color, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{exp.label}</p>
+                  <p style={{ fontSize: 11, color: 'var(--c-text-3)', marginTop: 1 }}>
+                    {cat.label}{exp.date && ` · ${exp.date}`}
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-text-1)' }}>{Number(exp.amount).toLocaleString('ko-KR')}원</p>
+                  <button onClick={() => removeExpense(exp.id)} style={{ fontSize: 11, color: 'var(--c-text-3)', marginTop: 2 }}>삭제</button>
+                </div>
+              </div>
+            )
+          })}
+          <div style={{ padding: '12px 18px', background: 'var(--c-surface2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)' }}>합계</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--c-primary)' }}>{totalSpent.toLocaleString('ko-KR')}원</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function fmtCost(n) {

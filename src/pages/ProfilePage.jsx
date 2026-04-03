@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext'
 import { logout } from '../firebase/auth'
 import { getTrips } from '../firebase/firestore'
 import { calcTripStatus, getTripDuration } from '../utils/dateUtils'
-import AppLayout from '../components/layout/AppLayout'
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -21,7 +20,6 @@ export default function ProfilePage() {
   const completed = trips.filter(t => calcTripStatus(t.startDate, t.endDate) === 'completed')
 
   return (
-    <AppLayout>
       <div style={{ paddingBottom: 32 }}>
       {/* ── User hero card ── */}
       <div style={{ margin: '16px', background: 'linear-gradient(160deg, #1E3A5F 0%, #2563EB 60%, #60A5FA 100%)', borderRadius: 'var(--r-2xl)', padding: '28px 24px', boxShadow: 'var(--shadow-lg)', position: 'relative', overflow: 'hidden' }}>
@@ -96,7 +94,6 @@ export default function ProfilePage() {
         Triplet v1.0.0 · ✈️ 나만의 여행 플래너
       </p>
       </div>
-    </AppLayout>
   )
 }
 

@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import { logout } from '../../firebase/auth'
 
 const NAV = [
@@ -12,6 +13,7 @@ export default function Sidebar() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const { isDark, toggleTheme } = useTheme()
 
   return (
     <aside className="app-sidebar">
@@ -65,6 +67,9 @@ export default function Sidebar() {
           <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.displayName ?? '여행자'}</p>
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--c-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</p>
         </div>
+        <button onClick={toggleTheme} className="btn btn-ghost btn-icon-sm" title={isDark ? '라이트 모드' : '다크 모드'}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{isDark ? 'light_mode' : 'dark_mode'}</span>
+        </button>
         <button onClick={logout} className="btn btn-ghost btn-icon-sm" title="로그아웃">
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>logout</span>
         </button>

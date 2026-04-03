@@ -323,10 +323,10 @@ img { max-width: 100%; display: block; }
    Utility
 ═══════════════════════════════════════════ */
 /* ═══════════════════════════════════════════
-   Dark Mode (시스템 설정 자동 감지)
+   Dark Mode — 시스템 자동 (수동 설정 없을 때만)
 ═══════════════════════════════════════════ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  html:not(.light):not(.dark) {
     --c-primary:       #60A5FA;
     --c-primary-hover: #3B82F6;
     --c-primary-light: #1E3A5F;
@@ -355,14 +355,14 @@ img { max-width: 100%; display: block; }
     --shadow-primary: 0 4px 14px rgba(96,165,250,0.35);
   }
 
-  .skeleton {
+  html:not(.light):not(.dark) .skeleton {
     background: linear-gradient(90deg, #1a2333 25%, #243145 50%, #1a2333 75%);
     background-size: 200% 100%;
   }
 }
 
-/* ── 다크모드 수동 토글 클래스 ── */
-.dark {
+/* ── 수동 다크모드 ── */
+html.dark {
   --c-primary:       #60A5FA;
   --c-primary-hover: #3B82F6;
   --c-primary-light: #1E3A5F;
@@ -380,6 +380,42 @@ img { max-width: 100%; display: block; }
   --c-text-2:   #8DA0B9;
   --c-text-3:   #566880;
   --c-text-inv: #0F172A;
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.25);
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.15);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.2);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.2);
+  --shadow-primary: 0 4px 14px rgba(96,165,250,0.35);
+}
+
+html.dark .skeleton {
+  background: linear-gradient(90deg, #1a2333 25%, #243145 50%, #1a2333 75%);
+  background-size: 200% 100%;
+}
+
+/* ── 수동 라이트모드 (시스템이 다크여도 강제 라이트) ── */
+html.light {
+  --c-primary:       #3B82F6;
+  --c-primary-hover: #2563EB;
+  --c-primary-light: #EFF6FF;
+  --c-primary-dim:   rgba(59,130,246,0.1);
+  --c-accent:  #F97316;
+  --c-success: #10B981;
+  --c-warning: #F59E0B;
+  --c-error:   #EF4444;
+  --c-bg:       #F1F5F9;
+  --c-surface:  #FFFFFF;
+  --c-surface2: #F8FAFC;
+  --c-border:   #E2E8F0;
+  --c-border2:  #CBD5E1;
+  --c-text-1:   #0F172A;
+  --c-text-2:   #475569;
+  --c-text-3:   #94A3B8;
+  --c-text-inv: #FFFFFF;
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+  --shadow-primary: 0 4px 14px rgba(59,130,246,0.4);
 }
 
 .flex     { display: flex; }

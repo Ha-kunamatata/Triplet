@@ -2,7 +2,7 @@ let loadPromise = null
 
 /**
  * 카카오맵 JS SDK를 동적으로 로드합니다.
- * services 라이브러리(키워드 검색)를 포함합니다.
+ * services(키워드 검색) + clusterer(마커 클러스터) 라이브러리 포함
  */
 export function loadKakaoMaps(apiKey) {
   if (window.kakao?.maps?.services) return Promise.resolve()
@@ -10,7 +10,7 @@ export function loadKakaoMaps(apiKey) {
 
   loadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script')
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services&autoload=false`
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services,clusterer&autoload=false`
     script.async = true
     script.onload = () => {
       window.kakao.maps.load(() => resolve())

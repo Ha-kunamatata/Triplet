@@ -832,6 +832,12 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
   const [editingCatLimit, setEditingCatLimit] = useState(null)
   const [catLimitInput,   setCatLimitInput]   = useState('')
   const [activeTab,       setActiveTab]       = useState('overview')
+  const [showWizard,      setShowWizard]      = useState(false)
+  const [wizardInput,     setWizardInput]     = useState('')
+  const [showCurrency,    setShowCurrency]    = useState(false)
+  const [currency,        setCurrencyType]    = useState('JPY')
+  const [rate,            setRate]            = useState('')
+  const [calcAmt,         setCalcAmt]         = useState('')
 
   const totalSpent = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0)
   const pct        = budget > 0 ? Math.min(100, Math.round((totalSpent / budget) * 100)) : 0
@@ -891,6 +897,78 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
   }
 
   const combinedPct = budget > 0 ? Math.min(100, Math.round((totalCombined / budget) * 100)) : 0
+
+  // ── 도넛 차트 conic-gradient 계산 ──
+  const donutSegments = BUDGET_CATS
+    .map(cat => ({ ...cat, val: combinedCostByCategory[cat.key] ?? 0 }))
+    .filter(s => s.val > 0)
+  let cumPct = 0
+  const donutGrad = totalCombined > 0
+    ? 'conic-gradient(' + donutSegments.map(s => {
+        const pctSlice = s.val / totalCombined * 100
+        const part = `${s.color} ${cumPct.toFixed(1)}% ${(cumPct + pctSlice).toFixed(1)}%`
+        cumPct += pctSlice
+        return part
+      }).join(', ') + `, var(--c-border) ${cumPct.toFixed(1)}% 100%)`
+    : 'conic-gradient(var(--c-border) 0% 100%)'
+
+  // ── 스마트 인사이트 ──
+  const today = new Date().toISOString().slice(0, 10)
+  const elapsedDays = Math.max(1, dates.filter(d => d <= today).length)
+  const dailyRate = totalCombined / elapsedDays
+  const forecastTotal = dailyRate * dates.length
+  const insights = []
+  if (totalCombined > 0) {
+    const topCat = BUDGET_CATS.reduce((mx, cat) => {
+      const v = combinedCostByCategory[cat.key] ?? 0
+      return v > (combinedCostByCategory[mx.key] ?? 0) ? cat : mx
+    }, BUDGET_CATS[0])
+    const topPct = Math.round((combinedCostByCategory[topCat.key] ?? 0) / totalCombined * 100)
+    insights.push({ type: 'info', text: `${topCat.label}에 전체 지출의 ${topPct}%를 쓰고 있어요`, icon: topCat.icon })
+  }
+  if (budget > 0 && dates.length > 0 && totalCombined > 0) {
+    if (forecastTotal > budget) {
+      insights.push({ type: 'error', text: `이 속도라면 여행 후 예산보다 ${Math.round(forecastTotal - budget).toLocaleString('ko-KR')}원 초과될 것 같아요`, icon: 'trending_up' })
+    } else {
+      insights.push({ type: 'success', text: `이 속도라면 ${Math.round(budget - forecastTotal).toLocaleString('ko-KR')}원이 남을 것 같아요`, icon: 'savings' })
+    }
+  }
+  BUDGET_CATS.forEach(cat => {
+    const limit = catBudgets[cat.key]; const combined = combinedCostByCategory[cat.key] ?? 0
+    if (limit > 0 && combined > limit)
+      insights.push({ type: 'error', text: `${cat.label} 예산이 ${(combined - limit).toLocaleString('ko-KR')}원 초과됐어요`, icon: 'warning' })
+  })
+  if (budget > 0 && totalCombined === 0)
+    insights.push({ type: 'info', text: '지출을 추가하거나 일정에 비용을 입력해보세요', icon: 'add_circle' })
+
+  // ── 예산 마법사 추천 배분 ──
+  const WIZARD_ALLOC = [
+    { key: 'flight', pct: 30 }, { key: 'hotel', pct: 35 }, { key: 'food', pct: 15 },
+    { key: 'tour', pct: 10 }, { key: 'shopping', pct: 7 }, { key: 'transport', pct: 2 }, { key: 'other', pct: 1 },
+  ]
+
+  function applyWizard() {
+    const total = Number(wizardInput.replace(/,/g, '')) || 0
+    if (!total) return
+    const next = {}
+    WIZARD_ALLOC.forEach(({ key, pct }) => { next[key] = Math.round(total * pct / 100) })
+    setBudgetLocal(total)
+    setCatBudgets(next)
+    setShowWizard(false)
+    onSave(total, expenses, next)
+  }
+
+  // ── 환율 계산기 ──
+  const CURRENCIES = [
+    { code: 'JPY', label: '일본 엔', flag: '🇯🇵', hint: '약 9원' },
+    { code: 'USD', label: '미국 달러', flag: '🇺🇸', hint: '약 1,320원' },
+    { code: 'EUR', label: '유로', flag: '🇪🇺', hint: '약 1,420원' },
+    { code: 'THB', label: '태국 밧', flag: '🇹🇭', hint: '약 37원' },
+    { code: 'VND', label: '베트남 동', flag: '🇻🇳', hint: '약 0.052원' },
+    { code: 'SGD', label: '싱가포르달러', flag: '🇸🇬', hint: '약 984원' },
+  ]
+  const rateNum = Number(rate.replace(/,/g, '')) || 0
+  const calcResult = rateNum > 0 && calcAmt ? Math.round(Number(calcAmt.replace(/,/g, '')) * rateNum) : null
   const heroGrad = totalCombined > budget
     ? 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'
     : combinedPct >= 80
@@ -949,23 +1027,85 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
           </div>
         )}
 
-        {/* 진행 바 + 통계 */}
+        {/* 진행 바 + 통계 + 도넛 */}
         {budget > 0 && (
           <div style={{ background: 'rgba(0,0,0,0.15)', borderRadius: '0 0 20px 20px', margin: '0 -20px', padding: '14px 20px' }}>
-            <div style={{ height: 6, background: 'rgba(255,255,255,0.2)', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
-              <div style={{ height: '100%', width: `${combinedPct}%`, background: '#fff', borderRadius: 3, transition: 'width 0.6s cubic-bezier(0.4,0,0.2,1)', opacity: 0.9 }} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 0 }}>
-              {[{ label: '총 예산', value: budget }, { label: '직접 지출', value: totalSpent }, { label: '일정 비용', value: totalIntegrated }].map(({ label, value }, idx) => (
-                <div key={label} style={{ textAlign: 'center', padding: '4px 0', borderRight: idx < 2 ? '1px solid rgba(255,255,255,0.15)' : 'none' }}>
-                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', marginBottom: 3 }}>{label}</p>
-                  <p style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{value.toLocaleString('ko-KR')}원</p>
+            {/* 도넛 차트 + 통계 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+              {/* CSS 도넛 차트 */}
+              <div className="donut-chart" style={{ width: 72, height: 72, background: donutGrad, flexShrink: 0 }}>
+                <div className="donut-inner" style={{ width: 46, height: 46 }}>
+                  <p style={{ fontSize: 8, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>사용률</p>
+                  <p style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{combinedPct}%</p>
                 </div>
-              ))}
+              </div>
+              {/* 3열 통계 */}
+              <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 0 }}>
+                {[{ label: '총 예산', value: budget }, { label: '직접 지출', value: totalSpent }, { label: '일정 비용', value: totalIntegrated }].map(({ label, value }, idx) => (
+                  <div key={label} style={{ textAlign: 'center', borderRight: idx < 2 ? '1px solid rgba(255,255,255,0.15)' : 'none', padding: '0 4px' }}>
+                    <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{label}</p>
+                    <p style={{ fontSize: 12, fontWeight: 800, color: '#fff' }}>{value >= 10000 ? `${Math.round(value/10000)}만` : value.toLocaleString('ko-KR')}원</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* 진행 바 */}
+            <div style={{ height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${combinedPct}%`, background: '#fff', borderRadius: 2, transition: 'width 0.6s cubic-bezier(0.4,0,0.2,1)', opacity: 0.85 }} />
             </div>
           </div>
         )}
+
+        {/* 마법사 버튼 (예산 미설정 시) */}
+        {!budget && !editBudget && (
+          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowWizard(true)}
+              style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: 12, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+              자동 배분 마법사
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* ── 예산 배분 마법사 ── */}
+      {showWizard && (
+        <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border)', padding: '18px', boxShadow: 'var(--shadow-md)', animation: 'slideInUp 0.25s var(--ease)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-text-1)', letterSpacing: -0.3 }}>예산 자동 배분</p>
+              <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 2 }}>총 예산을 입력하면 카테고리별 추천 한도를 설정해드려요</p>
+            </div>
+            <button onClick={() => setShowWizard(false)} style={{ color: 'var(--c-text-3)', padding: 4 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>close</span>
+            </button>
+          </div>
+          <input type="number" value={wizardInput} onChange={e => setWizardInput(e.target.value)}
+            placeholder="총 예산 입력 (원)"
+            style={{ width: '100%', height: 48, padding: '0 14px', border: '1.5px solid var(--c-primary)', borderRadius: 12, fontSize: 16, background: 'var(--c-surface2)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none', boxSizing: 'border-box', marginBottom: 12 }} />
+          {wizardInput > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14 }}>
+              {WIZARD_ALLOC.map(({ key, pct }) => {
+                const cat = BUDGET_CATS.find(c => c.key === key)
+                const amt = Math.round(Number(wizardInput) * pct / 100)
+                return (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: cat.color + '12', borderRadius: 10 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14, color: cat.color, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 11, color: 'var(--c-text-3)' }}>{cat.label} {pct}%</p>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--c-text-1)' }}>{amt.toLocaleString('ko-KR')}원</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <button onClick={applyWizard} disabled={!wizardInput}
+            style={{ width: '100%', padding: '13px', background: wizardInput ? 'linear-gradient(135deg, var(--c-primary), #6366F1)' : 'var(--c-border)', color: '#fff', borderRadius: 12, fontSize: 15, fontWeight: 800, boxShadow: wizardInput ? '0 4px 14px rgba(99,102,241,0.35)' : 'none' }}>
+            이 배분으로 설정하기
+          </button>
+        </div>
+      )}
 
       {/* ── 카테고리별 예산 ── */}
       <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
@@ -1027,6 +1167,76 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
             )
           })}
         </div>
+      </div>
+
+      {/* ── 스마트 인사이트 ── */}
+      {insights.length > 0 && (
+        <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border)', padding: '14px 16px', boxShadow: 'var(--shadow-xs)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#6366F1', fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)' }}>스마트 인사이트</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {insights.map((ins, i) => (
+              <div key={i} className={`insight-card ${ins.type}`} style={{ animation: `slideInUp 0.2s ${i * 0.05}s both` }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, color: ins.type === 'error' ? 'var(--c-error)' : ins.type === 'success' ? 'var(--c-success)' : '#6366F1', fontVariationSettings: "'FILL' 1", flexShrink: 0 }}>{ins.icon}</span>
+                <p style={{ fontSize: 12, color: 'var(--c-text-2)', lineHeight: 1.5 }}>{ins.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 환율 계산기 ── */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border)', overflow: 'hidden', boxShadow: 'var(--shadow-xs)' }}>
+        <button onClick={() => setShowCurrency(v => !v)}
+          style={{ width: '100%', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#F97316', fontVariationSettings: "'FILL' 1" }}>currency_exchange</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)' }}>환율 계산기</span>
+            {rateNum > 0 && <span style={{ fontSize: 11, color: '#F97316', background: '#FFF7ED', padding: '1px 7px', borderRadius: 4, fontWeight: 600 }}>1{currency} = {rateNum.toLocaleString('ko-KR')}원</span>}
+          </div>
+          <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--c-text-3)', transition: 'transform 0.2s', transform: showCurrency ? 'rotate(180deg)' : 'none' }}>expand_more</span>
+        </button>
+        {showCurrency && (
+          <div style={{ padding: '0 16px 16px', borderTop: '1px solid var(--c-border)' }}>
+            {/* 통화 선택 */}
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '12px 0 10px', scrollbarWidth: 'none' }}>
+              {CURRENCIES.map(c => (
+                <button key={c.code} onClick={() => setCurrencyType(c.code)}
+                  className={`currency-chip${currency === c.code ? ' selected' : ''}`}>
+                  <span>{c.flag}</span>
+                  <span>{c.code}</span>
+                </button>
+              ))}
+            </div>
+            {/* 환율 입력 */}
+            <p style={{ fontSize: 11, color: 'var(--c-text-3)', marginBottom: 6 }}>
+              현재 환율: 1{CURRENCIES.find(c => c.code === currency)?.label} = {CURRENCIES.find(c => c.code === currency)?.hint}
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--c-text-3)', fontWeight: 600 }}>1{currency} =</span>
+                <input type="number" value={rate} onChange={e => setRate(e.target.value)} placeholder="환율 직접 입력"
+                  style={{ width: '100%', height: 40, paddingLeft: 60, paddingRight: 12, border: '1.5px solid var(--c-border)', borderRadius: 10, fontSize: 14, background: 'var(--c-surface2)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--c-text-3)', whiteSpace: 'nowrap' }}>원</span>
+            </div>
+            {/* 금액 변환 */}
+            {rateNum > 0 && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input type="number" value={calcAmt} onChange={e => setCalcAmt(e.target.value)} placeholder={`금액 (${currency})`}
+                  style={{ flex: 1, height: 44, padding: '0 12px', border: '1.5px solid #F97316', borderRadius: 10, fontSize: 15, background: '#FFF7ED', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none' }} />
+                <span className="material-symbols-outlined" style={{ color: 'var(--c-text-3)', fontSize: 18 }}>arrow_forward</span>
+                <div style={{ flex: 1, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: calcResult ? '#ECFDF5' : 'var(--c-surface2)', borderRadius: 10, border: `1.5px solid ${calcResult ? '#10B981' : 'var(--c-border)'}` }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: calcResult ? '#10B981' : 'var(--c-text-3)' }}>
+                    {calcResult ? `${calcResult.toLocaleString('ko-KR')}원` : '?원'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── 지출 추가 버튼 / 폼 ── */}

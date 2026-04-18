@@ -43,6 +43,7 @@ export default function TripDetailPage() {
   const [activeId, setActiveId] = useState(null)
   const [budget, setBudget] = useState(0)
   const [expenses, setExpenses] = useState([])
+  const [categoryBudgets, setCategoryBudgets] = useState({})
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
 
@@ -65,6 +66,7 @@ export default function TripDetailPage() {
           setChecklist(t.checklist ?? DEFAULT_CHECKLIST)
           setBudget(t.budget ?? 0)
           setExpenses(t.expenses ?? [])
+          setCategoryBudgets(t.categoryBudgets ?? {})
         }
       })
       .finally(() => setLoading(false))
@@ -332,10 +334,19 @@ export default function TripDetailPage() {
         <BudgetView
           budget={budget}
           expenses={expenses}
-          onSave={async (newBudget, newExpenses) => {
+          categoryBudgets={categoryBudgets}
+          schedules={schedules}
+          tripItems={tripItems}
+          dates={dates}
+          onSave={async (newBudget, newExpenses, newCatBudgets) => {
             setBudget(newBudget)
             setExpenses(newExpenses)
-            await updateTripBudgetData(tripId, { budget: newBudget, expenses: newExpenses })
+            setCategoryBudgets(newCatBudgets)
+            await updateTripBudgetData(tripId, {
+              budget:          newBudget,
+              expenses:        newExpenses,
+              categoryBudgets: newCatBudgets,
+            })
             setToast({ message: '저장되었습니다.' })
           }}
         />
@@ -792,6 +803,14 @@ function getCoverGradient(emoji) {
    BudgetView (Phase 7)
 ──────────────────────────────────────────────────────── */
 
+const SCHED_TO_BUDGET = {
+  accommodation: 'hotel', restaurant: 'food', cafe: 'food',
+  attraction: 'tour', transport: 'transport', shopping: 'shopping', etc: 'other',
+}
+const ITEM_TYPE_TO_BUDGET = {
+  FLIGHT: 'flight', STAY: 'hotel', TRANSPORT: 'transport', PLACE: 'tour', MEMO: 'other',
+}
+
 const BUDGET_CATS = [
   { key: 'flight',    label: '항공',  icon: 'flight',         color: '#D4537E' },
   { key: 'hotel',     label: '숙소',  icon: 'hotel',          color: '#378ADD' },
@@ -802,24 +821,48 @@ const BUDGET_CATS = [
   { key: 'other',     label: '기타',  icon: 'more_horiz',     color: '#94A3B8' },
 ]
 
-function BudgetView({ budget: initBudget, expenses: initExpenses, onSave }) {
-  const [budget,     setBudgetLocal] = useState(initBudget)
-  const [expenses,   setExpenses]    = useState(initExpenses)
-  const [editBudget, setEditBudget]  = useState(false)
-  const [budgetInput, setBudgetInput] = useState(String(initBudget || ''))
-  const [showForm,   setShowForm]    = useState(false)
-  const [form, setForm] = useState({ category: 'food', label: '', amount: '', date: '', note: '' })
+function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudgets: initCategoryBudgets, schedules, tripItems, dates, onSave }) {
+  const [budget,        setBudgetLocal]    = useState(initBudget)
+  const [expenses,      setExpenses]       = useState(initExpenses)
+  const [editBudget,    setEditBudget]     = useState(false)
+  const [budgetInput,   setBudgetInput]    = useState(String(initBudget || ''))
+  const [showForm,      setShowForm]       = useState(false)
+  const [form,          setForm]           = useState({ category: 'food', label: '', amount: '', date: '', note: '' })
+  const [catBudgets,      setCatBudgets]      = useState(initCategoryBudgets ?? {})
+  const [editingCatLimit, setEditingCatLimit] = useState(null)
+  const [catLimitInput,   setCatLimitInput]   = useState('')
+  const [activeTab,       setActiveTab]       = useState('overview')
 
   const totalSpent = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0)
   const pct        = budget > 0 ? Math.min(100, Math.round((totalSpent / budget) * 100)) : 0
   const overBudget = totalSpent > budget && budget > 0
   const barColor   = pct >= 100 ? '#EF4444' : pct >= 80 ? '#F59E0B' : '#10B981'
 
+  const integratedCostByCategory = {}
+  schedules.forEach(s => {
+    const k = SCHED_TO_BUDGET[s.category] ?? 'other'
+    integratedCostByCategory[k] = (integratedCostByCategory[k] ?? 0) + (Number(s.cost) || 0)
+  })
+  tripItems.forEach(item => {
+    const k = ITEM_TYPE_TO_BUDGET[item.type] ?? 'other'
+    integratedCostByCategory[k] = (integratedCostByCategory[k] ?? 0) + (Number(item.cost) || 0)
+  })
+  const expenseCostByCategory = {}
+  expenses.forEach(e => {
+    expenseCostByCategory[e.category] = (expenseCostByCategory[e.category] ?? 0) + (Number(e.amount) || 0)
+  })
+  const combinedCostByCategory = {}
+  BUDGET_CATS.forEach(cat => {
+    combinedCostByCategory[cat.key] = (expenseCostByCategory[cat.key] ?? 0) + (integratedCostByCategory[cat.key] ?? 0)
+  })
+  const totalIntegrated = Object.values(integratedCostByCategory).reduce((s, v) => s + v, 0)
+  const totalCombined   = totalSpent + totalIntegrated
+
   function saveBudget() {
     const n = Number(budgetInput.replace(/,/g, '')) || 0
     setBudgetLocal(n)
     setEditBudget(false)
-    onSave(n, expenses)
+    onSave(n, expenses, catBudgets)
   }
 
   function addExpense() {
@@ -829,17 +872,39 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, onSave }) {
     setExpenses(next)
     setShowForm(false)
     setForm({ category: 'food', label: '', amount: '', date: '', note: '' })
-    onSave(budget, next)
+    onSave(budget, next, catBudgets)
   }
 
   function removeExpense(id) {
     const next = expenses.filter(e => e.id !== id)
     setExpenses(next)
-    onSave(budget, next)
+    onSave(budget, next, catBudgets)
+  }
+
+  function saveCatLimit(catKey) {
+    const val = Number(catLimitInput) || 0
+    const next = { ...catBudgets }
+    if (val) next[catKey] = val; else delete next[catKey]
+    setCatBudgets(next)
+    setEditingCatLimit(null)
+    onSave(budget, expenses, next)
   }
 
   return (
     <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+      {/* ── 탭 바 ── */}
+      <div style={{ display: 'flex', background: 'var(--c-surface2)', borderRadius: 12, padding: 4, gap: 4 }}>
+        {[{ key: 'overview', label: '전체 현황', icon: 'pie_chart' }, { key: 'daily', label: '일별 지출', icon: 'calendar_month' }].map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '9px 0', borderRadius: 9, fontSize: 13, fontWeight: 700, background: activeTab === tab.key ? 'var(--c-surface)' : 'transparent', color: activeTab === tab.key ? 'var(--c-primary)' : 'var(--c-text-3)', boxShadow: activeTab === tab.key ? 'var(--shadow-xs)' : 'none', transition: 'all var(--t-fast)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 15, fontVariationSettings: activeTab === tab.key ? "'FILL' 1" : "'FILL' 0" }}>{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'overview' && (<>
 
       {/* ── 예산 설정 카드 ── */}
       <div style={{ background: 'var(--c-surface)', borderRadius: 16, padding: '16px 18px', border: '1px solid var(--c-border)', boxShadow: '0 1px 8px rgba(15,23,42,0.06)' }}>
@@ -847,15 +912,8 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, onSave }) {
           <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)' }}>총 예산</p>
           {editBudget ? (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                autoFocus
-                value={budgetInput}
-                onChange={e => setBudgetInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && saveBudget()}
-                placeholder="예산 입력"
-                type="number"
-                style={{ width: 130, height: 36, padding: '0 12px', border: '1.5px solid var(--c-primary)', borderRadius: 10, fontSize: 14, outline: 'none', background: 'var(--c-surface2)', color: 'var(--c-text-1)', fontFamily: 'var(--font)' }}
-              />
+              <input autoFocus value={budgetInput} onChange={e => setBudgetInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveBudget()} placeholder="예산 입력" type="number"
+                style={{ width: 130, height: 36, padding: '0 12px', border: '1.5px solid var(--c-primary)', borderRadius: 10, fontSize: 14, outline: 'none', background: 'var(--c-surface2)', color: 'var(--c-text-1)', fontFamily: 'var(--font)' }} />
               <button onClick={saveBudget} style={{ padding: '7px 14px', background: 'var(--c-primary)', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 700 }}>저장</button>
             </div>
           ) : (
@@ -866,55 +924,90 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, onSave }) {
             </button>
           )}
         </div>
-
-        {/* 진행 바 */}
-        {budget > 0 && (
-          <>
-            <div style={{ height: 10, background: 'var(--c-border)', borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
-              <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 5, transition: 'width 0.5s ease' }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--c-text-3)' }}>
-              <span>지출 <b style={{ color: barColor }}>{totalSpent.toLocaleString('ko-KR')}원</b></span>
-              <span style={{ fontWeight: 700, color: barColor }}>{pct}%</span>
-              <span>{overBudget ? <span style={{ color: '#EF4444' }}>초과 {(totalSpent - budget).toLocaleString('ko-KR')}원</span> : `남은 예산 ${(budget - totalSpent).toLocaleString('ko-KR')}원`}</span>
-            </div>
-          </>
-        )}
-        {budget === 0 && (
-          <p style={{ fontSize: 13, color: 'var(--c-text-3)', textAlign: 'center', padding: '8px 0' }}>예산을 설정하면 지출 현황을 한눈에 볼 수 있어요</p>
-        )}
+        {budget > 0 && (<>
+          <div style={{ height: 10, background: 'var(--c-border)', borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
+            <div style={{ height: '100%', width: `${Math.min(100, Math.round((totalCombined / budget) * 100))}%`, background: totalCombined > budget ? '#EF4444' : totalCombined / budget >= 0.8 ? '#F59E0B' : '#10B981', borderRadius: 5, transition: 'width 0.5s ease' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 10 }}>
+            {[{ label: '총 예산', value: budget, color: 'var(--c-text-1)' }, { label: '직접 지출', value: totalSpent, color: '#EF9F27' }, { label: '일정 비용', value: totalIntegrated, color: 'var(--c-primary)' }].map(({ label, value, color }) => (
+              <div key={label} style={{ textAlign: 'center', padding: '8px 4px', background: 'var(--c-surface2)', borderRadius: 10 }}>
+                <p style={{ fontSize: 10, color: 'var(--c-text-3)', marginBottom: 3 }}>{label}</p>
+                <p style={{ fontSize: 13, fontWeight: 800, color }}>{value.toLocaleString('ko-KR')}원</p>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 10, background: totalCombined > budget ? '#FEF2F2' : '#ECFDF5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: totalCombined > budget ? 'var(--c-error)' : 'var(--c-success)' }}>{totalCombined > budget ? '초과' : '잔액'}</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: totalCombined > budget ? 'var(--c-error)' : 'var(--c-success)' }}>{Math.abs(budget - totalCombined).toLocaleString('ko-KR')}원</span>
+          </div>
+        </>)}
+        {budget === 0 && <p style={{ fontSize: 13, color: 'var(--c-text-3)', textAlign: 'center', padding: '8px 0' }}>예산을 설정하면 지출 현황을 한눈에 볼 수 있어요</p>}
       </div>
 
-      {/* ── 카테고리별 지출 ── */}
-      {expenses.length > 0 && (
-        <div style={{ background: 'var(--c-surface)', borderRadius: 16, padding: '16px 18px', border: '1px solid var(--c-border)', boxShadow: '0 1px 8px rgba(15,23,42,0.06)' }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)', marginBottom: 14 }}>카테고리별 지출</p>
-          {BUDGET_CATS.map(cat => {
-            const catTotal = expenses.filter(e => e.category === cat.key).reduce((s, e) => s + (Number(e.amount) || 0), 0)
-            if (catTotal === 0) return null
-            const catPct = totalSpent > 0 ? Math.round((catTotal / totalSpent) * 100) : 0
-            return (
-              <div key={cat.key} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 26, height: 26, borderRadius: 8, background: cat.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: 14, color: cat.color, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text-2)' }}>{cat.label}</span>
+      {/* ── 카테고리별 예산 ── */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 16, padding: '16px 18px', border: '1px solid var(--c-border)', boxShadow: '0 1px 8px rgba(15,23,42,0.06)' }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)', marginBottom: 14 }}>카테고리별 예산</p>
+        {BUDGET_CATS.map(cat => {
+          const combined  = combinedCostByCategory[cat.key] ?? 0
+          const manual    = expenseCostByCategory[cat.key] ?? 0
+          const fromItems = integratedCostByCategory[cat.key] ?? 0
+          const limit     = catBudgets[cat.key]
+          const isEditing = editingCatLimit === cat.key
+          if (combined === 0 && !limit) return null
+          const barPct = limit > 0 ? Math.min(100, Math.round((combined / limit) * 100)) : 0
+          const barOver = limit > 0 && combined > limit
+          const barCol  = barOver ? '#EF4444' : barPct >= 80 ? '#F59E0B' : cat.color
+          return (
+            <div key={cat.key} style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 8, background: cat.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14, color: cat.color, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-1)' }}>{catTotal.toLocaleString('ko-KR')}원</span>
-                    <span style={{ fontSize: 11, color: 'var(--c-text-3)', marginLeft: 6 }}>{catPct}%</span>
-                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text-2)' }}>{cat.label}</span>
+                  {barOver && <span style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', background: '#FEF2F2', padding: '1px 6px', borderRadius: 6 }}>초과</span>}
                 </div>
-                <div style={{ height: 5, background: 'var(--c-border)', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${catPct}%`, background: cat.color, borderRadius: 3, transition: 'width 0.5s' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-1)' }}>{combined.toLocaleString('ko-KR')}원</span>
+                  {!isEditing && (
+                    <button onClick={() => { setEditingCatLimit(cat.key); setCatLimitInput(limit ? String(limit) : '') }}
+                      style={{ fontSize: 10, color: limit ? cat.color : 'var(--c-text-3)', background: limit ? cat.color + '15' : 'var(--c-surface2)', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>
+                      {limit ? `한도 ${limit.toLocaleString('ko-KR')}원` : '한도 설정'}
+                    </button>
+                  )}
                 </div>
               </div>
-            )
-          })}
-        </div>
-      )}
+              {isEditing && (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+                  <input autoFocus type="number" value={catLimitInput} onChange={e => setCatLimitInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveCatLimit(cat.key); if (e.key === 'Escape') setEditingCatLimit(null) }}
+                    placeholder="한도 금액 (0=해제)"
+                    style={{ flex: 1, height: 34, padding: '0 10px', border: `1.5px solid ${cat.color}`, borderRadius: 8, fontSize: 13, background: 'var(--c-surface2)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none' }} />
+                  <button onClick={() => saveCatLimit(cat.key)} style={{ padding: '6px 12px', background: cat.color, color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>저장</button>
+                  <button onClick={() => setEditingCatLimit(null)} style={{ padding: '6px 10px', background: 'var(--c-surface2)', color: 'var(--c-text-3)', borderRadius: 8, fontSize: 12 }}>취소</button>
+                </div>
+              )}
+              {(manual > 0 || fromItems > 0) && !isEditing && (
+                <div style={{ display: 'flex', gap: 10, marginBottom: 4 }}>
+                  {manual > 0 && <span style={{ fontSize: 10, color: 'var(--c-text-3)' }}>직접 {manual.toLocaleString('ko-KR')}원</span>}
+                  {fromItems > 0 && <span style={{ fontSize: 10, color: 'var(--c-primary)' }}>· 일정 {fromItems.toLocaleString('ko-KR')}원</span>}
+                </div>
+              )}
+              <div style={{ height: 5, background: 'var(--c-border)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: limit > 0 ? `${barPct}%` : `${totalCombined > 0 ? Math.round((combined / totalCombined) * 100) : 0}%`, background: barCol, borderRadius: 3, transition: 'width 0.5s' }} />
+              </div>
+              {limit > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 3 }}>
+                  <span style={{ fontSize: 10, color: barOver ? '#EF4444' : 'var(--c-text-3)' }}>한도 {limit.toLocaleString('ko-KR')}원 · {barPct}%</span>
+                </div>
+              )}
+            </div>
+          )
+        })}
+        {BUDGET_CATS.every(cat => (combinedCostByCategory[cat.key] ?? 0) === 0 && !catBudgets[cat.key]) && (
+          <p style={{ fontSize: 13, color: 'var(--c-text-3)', textAlign: 'center', padding: '8px 0' }}>지출을 추가하거나 카테고리 한도를 설정해보세요</p>
+        )}
+      </div>
 
       {/* ── 지출 추가 버튼 / 폼 ── */}
       {!showForm ? (
@@ -987,9 +1080,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, onSave }) {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{exp.label}</p>
-                  <p style={{ fontSize: 11, color: 'var(--c-text-3)', marginTop: 1 }}>
-                    {cat.label}{exp.date && ` · ${exp.date}`}
-                  </p>
+                  <p style={{ fontSize: 11, color: 'var(--c-text-3)', marginTop: 1 }}>{cat.label}{exp.date && ` · ${exp.date}`}</p>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-text-1)' }}>{Number(exp.amount).toLocaleString('ko-KR')}원</p>
@@ -1002,6 +1093,61 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, onSave }) {
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)' }}>합계</span>
             <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--c-primary)' }}>{totalSpent.toLocaleString('ko-KR')}원</span>
           </div>
+        </div>
+      )}
+
+      </>)}
+
+      {/* ── 일별 지출 탭 ── */}
+      {activeTab === 'daily' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {dates.map((date, dayIdx) => {
+            const dayExpenses = expenses.filter(e => e.date === date)
+            const daySchedCost = schedules.filter(s => s.date === date).reduce((sum, s) => sum + (Number(s.cost) || 0), 0)
+            const dayItemCost  = tripItems.filter(i => i.date === date).reduce((sum, i) => sum + (Number(i.cost) || 0), 0)
+            const dayManual    = dayExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0)
+            const dayTotal     = dayManual + daySchedCost + dayItemCost
+            if (dayTotal === 0 && dayExpenses.length === 0) return null
+            return (
+              <div key={date} style={{ background: 'var(--c-surface)', borderRadius: 16, border: '1px solid var(--c-border)', overflow: 'hidden', boxShadow: '0 1px 8px rgba(15,23,42,0.06)' }}>
+                <div style={{ padding: '12px 16px', background: 'var(--c-surface2)', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text-3)' }}>Day {dayIdx + 1}</span>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-text-1)', marginTop: 1 }}>{formatDisplayDate(date)}</p>
+                  </div>
+                  <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--c-primary)' }}>{dayTotal.toLocaleString('ko-KR')}원</span>
+                </div>
+                {(daySchedCost + dayItemCost) > 0 && (
+                  <div style={{ padding: '8px 16px', borderBottom: dayExpenses.length > 0 ? '1px solid var(--c-border)' : 'none', background: '#EFF6FF', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14, color: 'var(--c-primary)' }}>event</span>
+                    <span style={{ fontSize: 12, color: 'var(--c-primary)', fontWeight: 600, flex: 1 }}>일정 비용</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--c-primary)' }}>{(daySchedCost + dayItemCost).toLocaleString('ko-KR')}원</span>
+                  </div>
+                )}
+                {dayExpenses.map((exp, i) => {
+                  const cat = BUDGET_CATS.find(c => c.key === exp.category) ?? BUDGET_CATS.at(-1)
+                  return (
+                    <div key={exp.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: i < dayExpenses.length - 1 ? '1px solid var(--c-border)' : 'none' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: cat.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 14, color: cat.color, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{exp.label}</p>
+                        <p style={{ fontSize: 11, color: 'var(--c-text-3)', marginTop: 1 }}>{cat.label}</p>
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-1)', flexShrink: 0 }}>{Number(exp.amount).toLocaleString('ko-KR')}원</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+          {dates.every(date => expenses.filter(e => e.date === date).length === 0 && schedules.filter(s => s.date === date).reduce((s,x) => s+(Number(x.cost)||0),0) === 0 && tripItems.filter(i => i.date === date).reduce((s,x) => s+(Number(x.cost)||0),0) === 0) && (
+            <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--c-text-3)', fontSize: 13 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 40, display: 'block', marginBottom: 8 }}>receipt_long</span>
+              날짜별 지출 내역이 없습니다
+            </div>
+          )}
         </div>
       )}
     </div>

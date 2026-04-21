@@ -323,14 +323,23 @@ export default function TripDetailPage() {
                 {daySchedules.length === 0 && dayTripItems.length === 0 ? (
                   <EmptyState icon="event_note" title="이 날의 일정이 없어요" description="+ 버튼으로 일정을 추가해보세요" />
                 ) : (
-                  daySchedules.map((s, idx) => (
-                    <SortableTimelineItem
-                      key={s.id} schedule={s} isLast={idx === daySchedules.length - 1}
-                      onEdit={() => navigate(`/trips/${tripId}/schedule/${s.id}/edit`)}
-                      onDelete={() => handleDeleteSchedule(s.id)}
-                      isDragging={activeId === s.id}
-                    />
-                  ))
+                  daySchedules.map((s, idx) => {
+                    const next = daySchedules[idx + 1]
+                    const isLast = idx === daySchedules.length - 1
+                    return (
+                      <div key={s.id}>
+                        <SortableTimelineItem
+                          schedule={s} isLast={isLast && !next}
+                          onEdit={() => navigate(`/trips/${tripId}/schedule/${s.id}/edit`)}
+                          onDelete={() => handleDeleteSchedule(s.id)}
+                          isDragging={activeId === s.id}
+                        />
+                        {!isLast && next && s.lat && s.lng && next.lat && next.lng && (
+                          <DistanceConnector from={s} to={next} />
+                        )}
+                      </div>
+                    )
+                  })
                 )}
               </div>
             </SortableContext>
@@ -642,6 +651,34 @@ function SortableTimelineItem({ schedule, isLast, onEdit, onDelete, isDragging }
   )
 }
 
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000
+  const toR = x => x * Math.PI / 180
+  const dLat = toR(lat2 - lat1), dLng = toR(lng2 - lng1)
+  const a = Math.sin(dLat/2)**2 + Math.cos(toR(lat1)) * Math.cos(toR(lat2)) * Math.sin(dLng/2)**2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
+
+function DistanceConnector({ from, to }) {
+  const dist    = haversine(from.lat, from.lng, to.lat, to.lng)
+  const walkMin = Math.max(1, Math.round(dist / 80))
+  const distLabel = dist >= 1000 ? `${(dist/1000).toFixed(1)}km` : `${Math.round(dist)}m`
+  const timeLabel = walkMin >= 60
+    ? `${Math.floor(walkMin/60)}시간 ${walkMin%60}분`
+    : `${walkMin}분`
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:6, paddingLeft:66, marginTop:-10, marginBottom:-10, position:'relative', zIndex:2 }}>
+      <div style={{ width:2, height:20, background:'var(--c-border)', flexShrink:0 }} />
+      <div style={{ display:'flex', alignItems:'center', gap:5, background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:20, padding:'3px 10px' }}>
+        <span style={{ fontSize:11 }}>🚶</span>
+        <span style={{ fontSize:11, fontWeight:700, color:'var(--c-text-2)' }}>{timeLabel}</span>
+        <span style={{ width:3, height:3, borderRadius:'50%', background:'var(--c-border2)' }} />
+        <span style={{ fontSize:10, color:'var(--c-text-3)' }}>{distLabel}</span>
+      </div>
+    </div>
+  )
+}
+
 function ChecklistView({ checklist, newItem, onNewItemChange, onAdd, onToggle, onRemove }) {
   const categories = Object.entries(CHECKLIST_CATEGORIES)
   const done = checklist.filter(i => i.checked).length
@@ -742,72 +779,81 @@ function TimelineItem({ schedule, isLast, onEdit, onDelete, dragHandleProps }) {
   return (
     <div style={{ display: 'flex' }}>
       {/* Time column */}
-      <div style={{ width: 54, flexShrink: 0, textAlign: 'right', paddingRight: 12, paddingTop: 15 }}>
-        {schedule.startTime
-          ? <><p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text-2)', lineHeight: 1 }}>{schedule.startTime}</p>{schedule.endTime && <p style={{ fontSize: 10, color: 'var(--c-text-3)', marginTop: 3 }}>{schedule.endTime}</p>}</>
-          : <p style={{ fontSize: 11, color: 'var(--c-text-3)' }}>-</p>
-        }
+      <div style={{ width: 54, flexShrink: 0, textAlign: 'right', paddingRight: 12, paddingTop: 16 }}>
+        {schedule.startTime ? (
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--c-text-1)', lineHeight: 1, letterSpacing: -0.3 }}>{schedule.startTime}</p>
+            {schedule.endTime && <p style={{ fontSize: 10, color: 'var(--c-text-3)', marginTop: 3 }}>{schedule.endTime}</p>}
+          </div>
+        ) : (
+          <span style={{ fontSize: 11, color: 'var(--c-text-3)', display: 'block', paddingTop: 2 }}>—</span>
+        )}
       </div>
 
       {/* Connector */}
       <div style={{ width: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-        <div style={{ width: 13, height: 13, borderRadius: '50%', background: cat.color, marginTop: 14, flexShrink: 0, boxShadow: `0 0 0 3px ${cat.color}30,0 0 0 6px ${cat.color}10`, zIndex: 1 }} />
-        {!isLast && <div style={{ flex: 1, width: 2, minHeight: 20, marginTop: 3, background: `linear-gradient(to bottom,${cat.color}50,var(--c-border))` }} />}
+        <div style={{ width: 14, height: 14, borderRadius: '50%', background: cat.color, marginTop: 14, flexShrink: 0, boxShadow: `0 0 0 4px ${cat.color}28, 0 0 0 8px ${cat.color}0e`, zIndex: 1 }} />
+        {!isLast && <div style={{ flex: 1, width: 2, minHeight: 24, marginTop: 4, background: `linear-gradient(to bottom, ${cat.color}60, var(--c-border))` }} />}
       </div>
 
       {/* Card */}
-      <div style={{ flex: 1, paddingLeft: 10, paddingBottom: isLast ? 6 : 18 }}>
-        <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-lg)', padding: '12px 14px', boxShadow: '0 2px 12px rgba(15,23,42,0.07)', border: `1px solid ${cat.color}20` }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-              {dragHandleProps && (
-                <span {...dragHandleProps} className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--c-border2)', cursor: 'grab', flexShrink: 0, touchAction: 'none' }}>drag_indicator</span>
-              )}
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: cat.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 15, color: cat.color, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
-              </div>
-              <p style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--fw-bold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{schedule.title}</p>
-            </div>
-            <div style={{ display: 'flex', flexShrink: 0 }}>
-              {[['edit','편집',false],['delete','삭제',true]].map(([icon, title, danger]) => (
-                <button key={icon} title={title}
-                  onClick={icon === 'edit' ? onEdit : onDelete}
-                  style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', transition: 'all var(--t-fast)' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = danger ? '#FEF2F2' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--c-text-3)' }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{icon}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+      <div style={{ flex: 1, paddingLeft: 10, paddingBottom: isLast ? 8 : 20 }}>
+        <div style={{
+          background: 'var(--c-surface)', borderRadius: 16,
+          boxShadow: '0 3px 16px rgba(15,23,42,0.08)',
+          border: `1.5px solid ${cat.color}1a`,
+          overflow: 'hidden',
+        }}>
+          {/* Category accent strip */}
+          <div style={{ height: 3, background: `linear-gradient(90deg, ${cat.color}, ${cat.color}60)` }} />
 
-          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '3px 12px' }}>
-            {schedule.place && (
-              <span style={{ fontSize: 12, color: 'var(--c-text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 12 }}>location_on</span>{schedule.place}
-              </span>
-            )}
-            {schedule.placeAddress && (
-              <span style={{ fontSize: 11, color: 'var(--c-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
-                {schedule.placeAddress}
-              </span>
-            )}
-          </div>
+          <div style={{ padding: '12px 14px 13px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0 }}>
+                {dragHandleProps && (
+                  <span {...dragHandleProps} className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--c-border2)', cursor: 'grab', flexShrink: 0, touchAction: 'none' }}>drag_indicator</span>
+                )}
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${cat.color}22, ${cat.color}10)`, border: `1.5px solid ${cat.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16, color: cat.color, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: -0.3 }}>{schedule.title}</p>
+                  {(schedule.place || schedule.placeAddress) && (
+                    <p style={{ fontSize: 11, color: 'var(--c-text-3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 11 }}>location_on</span>
+                      {schedule.place || schedule.placeAddress}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                {[['edit',false],['delete',true]].map(([icon, danger]) => (
+                  <button key={icon}
+                    onClick={icon === 'edit' ? onEdit : onDelete}
+                    style={{ width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', transition: 'all var(--t-fast)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = danger ? '#FEF2F2' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--c-text-3)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{icon}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
           {schedule.memo && (
-            <div style={{ marginTop: 8, background: 'var(--c-surface2)', borderRadius: 8, padding: '7px 10px', borderLeft: `3px solid ${cat.color}60` }}>
-              <p style={{ fontSize: 12, color: 'var(--c-text-2)', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{schedule.memo}</p>
+            <div style={{ marginTop: 9, background: `${cat.color}0a`, borderRadius: 8, padding: '7px 10px', borderLeft: `3px solid ${cat.color}50` }}>
+              <p style={{ fontSize: 12, color: 'var(--c-text-2)', lineHeight: 1.65, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{schedule.memo}</p>
             </div>
           )}
 
           {schedule.cost > 0 && (
-            <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-primary)', background: 'var(--c-primary-light)', padding: '3px 12px', borderRadius: 'var(--r-full)' }}>
+            <div style={{ marginTop: 9, display: 'flex', justifyContent: 'flex-end' }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: cat.color, background: cat.color + '15', padding: '4px 12px', borderRadius: 20, letterSpacing: -0.3 }}>
                 {Number(schedule.cost).toLocaleString('ko-KR')}원
               </span>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>

@@ -1,98 +1,114 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
-import { loadKakaoMaps } from '../../utils/kakaoMaps'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-/* ── Day palette (up to 15 days) ───────────────────────── */
+/* Suppress Leaflet's broken default icon in bundlers */
+delete L.Icon.Default.prototype._getIconUrl
+
+/* ── Constants ──────────────────────────────────────────── */
 const DAY_COLORS = [
   '#3B82F6','#8B5CF6','#EC4899','#F97316','#10B981',
-  '#EF4444','#FBBF24','#06B6D4','#84CC16','#6366F1',
+  '#EF4444','#F59E0B','#06B6D4','#84CC16','#6366F1',
   '#14B8A6','#F43F5E','#A855F7','#22C55E','#FB923C',
 ]
 
-/* ── Category meta ──────────────────────────────────────── */
 const CAT_COLORS = {
   attraction:'#1D9E75', restaurant:'#EF9F27', cafe:'#7F77DD',
   accommodation:'#378ADD', transport:'#7C3AED', shopping:'#EC4899', etc:'#94A3B8',
   FLIGHT:'#D4537E', STAY:'#378ADD', PLACE:'#1D9E75', TRANSPORT:'#7C3AED', MEMO:'#F59E0B',
 }
-
 const CAT_EMOJI = {
   attraction:'🗺️', restaurant:'🍽️', cafe:'☕', accommodation:'🏨',
   transport:'🚗', shopping:'🛍️', etc:'📌',
   FLIGHT:'✈️', STAY:'🏨', PLACE:'📍', TRANSPORT:'🚌', MEMO:'📝',
 }
 
-function getColor(item) { return CAT_COLORS[item.type ?? item.category] ?? '#3B82F6' }
-function getEmoji(item) { return CAT_EMOJI[item.type ?? item.category] ?? '📍' }
-function getTitle(item) {
-  return item.title || item.name || item.flightNumber || item.fromName || '장소'
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+
+function getColor(item)  { return CAT_COLORS[item.type ?? item.category] ?? '#3B82F6' }
+function getEmoji(item)  { return CAT_EMOJI[item.type ?? item.category] ?? '📍' }
+function getTitle(item)  { return item.title || item.name || item.flightNumber || item.fromName || '장소' }
+
+/* ── Custom pin marker ──────────────────────────────────── */
+function makeDivIcon(color, emoji, num) {
+  const label = num > 9 ? '…' : String(num)
+  return L.divIcon({
+    className: '',
+    iconSize:  [38, 54],
+    iconAnchor:[19, 54],
+    popupAnchor:[0, -56],
+    html: `
+      <div style="width:38px;height:54px;position:relative;filter:drop-shadow(0 3px 5px rgba(0,0,0,0.32))">
+        <svg xmlns="http://www.w3.org/2000/svg" width="38" height="54" viewBox="0 0 38 54">
+          <path d="M19 2C11 2 4.5 8.5 4.5 16.5C4.5 28.5 19 52 19 52S33.5 28.5 33.5 16.5C33.5 8.5 27 2 19 2Z" fill="${color}"/>
+          <circle cx="19" cy="16.5" r="12" fill="white"/>
+          <circle cx="31" cy="7" r="8.5" fill="#0F172A" stroke="white" stroke-width="1.5"/>
+          <text x="31" y="10.5" text-anchor="middle" fill="white" font-size="8.5" font-weight="900" font-family="system-ui,-apple-system,sans-serif">${esc(label)}</text>
+        </svg>
+        <div style="position:absolute;top:4px;left:5.5px;width:25px;height:25px;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;pointer-events:none;user-select:none">${emoji}</div>
+      </div>`,
+  })
 }
 
-/* ── SVG pin marker ─────────────────────────────────────── */
-function makePinSVG(color, emoji, num) {
-  const label = num > 9 ? '•' : String(num)
-  return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="52" viewBox="0 0 36 52">
-      <defs>
-        <filter id="sh" x="-30%" y="-20%" width="160%" height="150%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000" flood-opacity="0.28"/>
-        </filter>
-      </defs>
-      <path d="M18 2C10.3 2 4 8.3 4 16C4 27.5 18 50 18 50S32 27.5 32 16C32 8.3 25.7 2 18 2Z" fill="${color}" filter="url(#sh)"/>
-      <circle cx="18" cy="16" r="11.5" fill="white"/>
-      <text x="18" y="20.5" text-anchor="middle" font-size="13" font-family="-apple-system,system-ui,sans-serif">${emoji}</text>
-      <circle cx="29" cy="7" r="8" fill="#0F172A" stroke="white" stroke-width="1.5"/>
-      <text x="29" y="10.5" text-anchor="middle" fill="white" font-size="8" font-weight="900" font-family="-apple-system,system-ui,sans-serif">${label}</text>
-    </svg>`,
-  )
-}
-
-/* ── Rich popup DOM ─────────────────────────────────────── */
-function makeInfoDOM(item, color, dayNum, markerColor) {
-  const title = getTitle(item)
-  const emoji = getEmoji(item)
-  const time = item.startTime || item.visitTime || item.departureTime?.slice(11, 16) || ''
-  const place = item.place || item.address || item.name || ''
-  const cost = item.cost > 0 ? `${Number(item.cost).toLocaleString('ko-KR')}원` : ''
-  const kakaoUrl = `https://map.kakao.com/link/to/${encodeURIComponent(title)},${item.lat},${item.lng}`
-  const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${item.lat},${item.lng}`
-
-  const div = document.createElement('div')
-  div.style.cssText = [
-    'min-width:210px;max-width:270px;',
-    'background:#fff;border-radius:18px;',
-    'box-shadow:0 8px 36px rgba(0,0,0,0.22);',
-    'font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif;',
-    'overflow:hidden;',
-  ].join('')
-
-  div.innerHTML = `
-    <div style="background:${markerColor};padding:12px 14px 10px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-        <div style="display:flex;align-items:center;gap:5px">
-          ${dayNum ? `<span style="background:rgba(0,0,0,0.2);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:0.3px">Day ${dayNum}</span>` : ''}
-          <span style="font-size:16px;line-height:1">${emoji}</span>
+/* ── Popup HTML ─────────────────────────────────────────── */
+function makePopupHTML(item, color, dayNum, markerColor) {
+  const title    = esc(getTitle(item))
+  const emoji    = getEmoji(item)
+  const time     = esc(item.startTime || item.visitTime || item.departureTime?.slice(11,16) || '')
+  const place    = esc(item.place || item.address || item.name || '')
+  const cost     = item.cost > 0 ? `${Number(item.cost).toLocaleString('ko-KR')}원` : ''
+  const kakaoUrl = `https://map.kakao.com/link/to/${encodeURIComponent(getTitle(item))},${item.lat},${item.lng}`
+  const googleUrl= `https://www.google.com/maps/dir/?api=1&destination=${item.lat},${item.lng}`
+  return `
+    <div class="tmap-popup">
+      <div class="tmap-popup-header" style="background:${markerColor}">
+        <div class="tmap-popup-meta">
+          ${dayNum ? `<span class="tmap-day-badge">Day ${dayNum}</span>` : ''}
+          <span style="font-size:16px">${emoji}</span>
         </div>
-        <button class="iw-close" style="width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.2);border:none;color:rgba(255,255,255,0.9);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0">✕</button>
+        <p class="tmap-popup-title">${title}</p>
+        ${time ? `<p class="tmap-popup-time">⏰ ${time}</p>` : ''}
       </div>
-      <p style="color:#fff;font-size:15px;font-weight:800;line-height:1.25;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</p>
-      ${time ? `<p style="color:rgba(255,255,255,0.85);font-size:11px;margin-top:4px;font-weight:500">⏰ ${time}</p>` : ''}
-    </div>
-    <div style="padding:10px 14px 12px">
-      ${place ? `<p style="font-size:12px;color:#64748B;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${place}</p>` : ''}
-      ${cost ? `<p style="font-size:15px;font-weight:800;color:${color};margin-bottom:8px">${cost}</p>` : ''}
-      <div style="display:flex;gap:7px">
-        <a href="${kakaoUrl}" target="_blank" rel="noopener"
-          style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:700;background:#FFCD29;color:#3C1E1E;padding:8px 6px;border-radius:10px;text-decoration:none">
-          🗺️ 카카오맵
-        </a>
-        <a href="${googleUrl}" target="_blank" rel="noopener"
-          style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:700;background:#4285F4;color:#fff;padding:8px 6px;border-radius:10px;text-decoration:none">
-          🌍 구글맵
-        </a>
+      <div class="tmap-popup-body">
+        ${place ? `<p class="tmap-popup-place">${place}</p>` : ''}
+        ${cost  ? `<p class="tmap-popup-cost" style="color:${color}">${cost}</p>` : ''}
+        <div class="tmap-nav-row">
+          <a href="${kakaoUrl}" target="_blank" rel="noopener" class="tmap-nav-btn tmap-nav-kakao">🗺️ 카카오맵</a>
+          <a href="${googleUrl}" target="_blank" rel="noopener" class="tmap-nav-btn tmap-nav-google">🌍 구글맵</a>
+        </div>
       </div>
-    </div>
-  `
-  return div
+    </div>`
+}
+
+/* ── MapControl button helper ───────────────────────────── */
+function MapBtn({ icon, title, onClick, active, children, style: extraStyle }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+        background: active ? '#3B82F6' : 'rgba(255,255,255,0.97)',
+        backdropFilter:'blur(14px)', WebkitBackdropFilter:'blur(14px)',
+        color: active ? '#fff' : '#0F172A',
+        border:'none', borderRadius: children ? 22 : '50%',
+        padding: children ? '8px 16px' : 0,
+        width: children ? 'auto' : 44, height: 44,
+        fontSize:13, fontWeight:800, cursor:'pointer',
+        boxShadow: active
+          ? '0 4px 18px rgba(59,130,246,0.5)'
+          : '0 2px 14px rgba(0,0,0,0.18)',
+        transition:'all 0.18s',
+        flexShrink:0,
+        ...extraStyle,
+      }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.transform='scale(1.08)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform='' }}
+    >
+      {icon && <span className="material-symbols-outlined" style={{ fontSize:20, fontVariationSettings:"'FILL' 1" }}>{icon}</span>}
+      {children}
+    </button>
+  )
 }
 
 /* ── Main Component ─────────────────────────────────────── */
@@ -101,144 +117,94 @@ export default function TripMap({
   tripItems    = [],
   dates        = [],
   selectedDate = null,
-  height       = 420,
+  height       = 'clamp(300px,55vh,520px)',
 }) {
-  const mapRef       = useRef(null)
-  const mapInst      = useRef(null)
-  const markersRef   = useRef([])
-  const polylinesRef = useRef([])
-  const clusterRef   = useRef(null)
-
+  const mapContainerRef = useRef(null)
+  const mapRef          = useRef(null)    // Leaflet Map instance
+  const markersRef      = useRef(null)    // L.LayerGroup
+  const linesRef        = useRef(null)    // L.LayerGroup
   const [status,   setStatus]   = useState('idle')
   const [showAll,  setShowAll]  = useState(false)
   const [locating, setLocating] = useState(false)
 
-  const apiKey = import.meta.env.VITE_KAKAO_MAPS_API_KEY
-
-  /* All geo-tagged items (merged) */
   const allGeoItems = useMemo(() => {
     const res = []
-    schedules.forEach(s => { if (s.lat && s.lng) res.push({ ...s, _src: 'sched' }) })
-    tripItems.forEach(i => { if (i.lat && i.lng) res.push({ ...i, _src: 'item' }) })
+    schedules.forEach(s => { if (s.lat && s.lng) res.push({ ...s, _src:'sched' }) })
+    tripItems.forEach(i => { if (i.lat && i.lng) res.push({ ...i, _src:'item'  }) })
     return res
   }, [schedules, tripItems])
 
-  /* Items for currently-selected day */
   const dayGeoItems = useMemo(() => {
     if (!selectedDate) return allGeoItems
     return allGeoItems.filter(i => i.date === selectedDate || i.checkIn === selectedDate)
   }, [allGeoItems, selectedDate])
 
-  /* ── Initialize map once ─────────────────────────────── */
+  /* ── Init map (once, when items are available) ────────── */
   useEffect(() => {
-    if (!apiKey)                { setStatus('no-key');    return }
     if (allGeoItems.length === 0) { setStatus('no-coords'); return }
-    if (mapInst.current)          { setStatus('ready');     return }
+    if (!mapContainerRef.current || mapRef.current) return
 
-    setStatus('loading')
-    loadKakaoMaps(apiKey)
-      .then(() => {
-        if (!mapRef.current) return
-        const kakao = window.kakao.maps
-        const first = allGeoItems[0]
-        const map   = new kakao.Map(mapRef.current, {
-          center: new kakao.LatLng(first.lat, first.lng),
-          level: 5,
-        })
-        mapInst.current = map
-
-        if (kakao.MarkerClusterer) {
-          clusterRef.current = new kakao.MarkerClusterer({
-            map,
-            averageCenter: true,
-            minLevel: 6,
-            styles: [{
-              width: '44px', height: '44px',
-              background: 'rgba(59,130,246,0.9)',
-              borderRadius: '50%', color: '#fff',
-              textAlign: 'center', fontWeight: '800',
-              lineHeight: '44px', fontSize: '14px',
-              boxShadow: '0 4px 14px rgba(59,130,246,0.45)',
-            }],
-          })
-        }
-        setStatus('ready')
-      })
-      .catch(() => setStatus('error'))
-  }, [apiKey, allGeoItems.length])
-
-  /* ── Refresh markers & polylines ─────────────────────── */
-  useEffect(() => {
-    if (status !== 'ready' || !mapInst.current || !window.kakao?.maps) return
-    const kakao = window.kakao.maps
-    const map   = mapInst.current
-
-    /* Clear previous */
-    markersRef.current.forEach(({ marker, overlay }) => {
-      marker.setMap(null); overlay?.setMap(null)
+    const first = allGeoItems[0]
+    const map = L.map(mapContainerRef.current, {
+      center: [first.lat, first.lng],
+      zoom: 13,
+      zoomControl: false,
+      attributionControl: true,
     })
-    markersRef.current = []
-    polylinesRef.current.forEach(p => p.setMap(null))
-    polylinesRef.current = []
-    clusterRef.current?.clear()
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map)
+
+    markersRef.current = L.layerGroup().addTo(map)
+    linesRef.current   = L.layerGroup().addTo(map)
+    mapRef.current     = map
+    setStatus('ready')
+
+    return () => {
+      map.remove()
+      mapRef.current     = null
+      markersRef.current = null
+      linesRef.current   = null
+    }
+  }, [allGeoItems.length])
+
+  /* ── Update markers & polylines ────────────────────────── */
+  useEffect(() => {
+    if (!mapRef.current || !markersRef.current) return
+
+    markersRef.current.clearLayers()
+    linesRef.current.clearLayers()
 
     const items = showAll ? allGeoItems : dayGeoItems
-    if (items.length === 0) return
+    if (!items.length) return
 
-    let activeOverlay = null
-    const newMarkers  = []
-
+    /* Markers */
     items.forEach((item, idx) => {
       const color    = getColor(item)
       const dateKey  = item.date || item.checkIn || ''
       const dayIdx   = dates.indexOf(dateKey)
-      const markerColor = showAll
+      const mColor   = showAll
         ? DAY_COLORS[dayIdx >= 0 ? dayIdx % DAY_COLORS.length : 0]
         : color
-      const pos = new kakao.LatLng(item.lat, item.lng)
+      const dayNum   = dayIdx >= 0 ? dayIdx + 1 : undefined
 
-      const mImg = new kakao.MarkerImage(
-        makePinSVG(markerColor, getEmoji(item), idx + 1),
-        new kakao.Size(36, 52),
-        { offset: new kakao.Point(18, 52) },
-      )
-      const marker = new kakao.Marker({ position: pos, image: mImg })
-
-      const infoDOM = makeInfoDOM(item, color, dayIdx >= 0 ? dayIdx + 1 : undefined, markerColor)
-      const overlay = new kakao.CustomOverlay({
-        position: pos, content: infoDOM,
-        xAnchor: 0.5, yAnchor: 2.1, zIndex: 10,
-      })
-
-      infoDOM.querySelector('.iw-close')?.addEventListener('click', e => {
-        e.stopPropagation(); overlay.setMap(null); activeOverlay = null
-      })
-      kakao.event.addListener(marker, 'click', () => {
-        if (activeOverlay && activeOverlay !== overlay) activeOverlay.setMap(null)
-        if (activeOverlay === overlay) {
-          overlay.setMap(null); activeOverlay = null
-        } else {
-          overlay.setMap(map); map.panTo(pos); activeOverlay = overlay
-        }
-      })
-
-      newMarkers.push({ marker, overlay })
-      /* add directly unless clustering */
-      if (!(showAll && items.length >= 8)) marker.setMap(map)
+      L.marker([item.lat, item.lng], { icon: makeDivIcon(mColor, getEmoji(item), idx + 1) })
+        .bindPopup(makePopupHTML(item, color, dayNum, mColor), {
+          className: 'tmap-popup-wrap',
+          maxWidth: 280,
+          minWidth: 220,
+        })
+        .addTo(markersRef.current)
     })
-    markersRef.current = newMarkers
 
-    if (showAll && items.length >= 8 && clusterRef.current) {
-      clusterRef.current.addMarkers(newMarkers.map(m => m.marker))
-    }
-
-    /* Route polylines */
-    const addPolyline = (pts, color) => {
+    /* Polylines */
+    const addLine = (pts, color) => {
       if (pts.length < 2) return
-      polylinesRef.current.push(new kakao.Polyline({
-        map, path: pts.map(p => new kakao.LatLng(p.lat, p.lng)),
-        strokeWeight: 3, strokeColor: color, strokeOpacity: 0.7, strokeStyle: 'shortdash',
-      }))
+      L.polyline(pts.map(p => [p.lat, p.lng]), {
+        color, weight: 3, opacity: 0.72, dashArray: '9 6',
+      }).addTo(linesRef.current)
     }
 
     if (showAll) {
@@ -249,207 +215,152 @@ export default function TripMap({
       })
       Object.entries(byDay).forEach(([d, pts]) => {
         const dIdx = dates.indexOf(d)
-        addPolyline(pts, DAY_COLORS[dIdx >= 0 ? dIdx % DAY_COLORS.length : 0])
+        addLine(pts, DAY_COLORS[dIdx >= 0 ? dIdx % DAY_COLORS.length : 0])
       })
     } else {
-      addPolyline(items, '#3B82F6')
+      addLine(items, '#3B82F6')
     }
 
-    /* Fit bounds */
+    /* Fit */
     if (items.length === 1) {
-      map.setCenter(new kakao.LatLng(items[0].lat, items[0].lng))
-      map.setLevel(4)
+      mapRef.current.setView([items[0].lat, items[0].lng], 14)
     } else {
-      const bounds = new kakao.LatLngBounds()
-      items.forEach(i => bounds.extend(new kakao.LatLng(i.lat, i.lng)))
-      map.setBounds(bounds, 60)
+      mapRef.current.fitBounds(items.map(i => [i.lat, i.lng]), { padding: [50, 50], maxZoom: 15 })
     }
   }, [status, showAll, dayGeoItems, allGeoItems, dates])
 
   /* ── Actions ─────────────────────────────────────────── */
   function locate() {
-    if (!mapInst.current || !navigator.geolocation) return
+    if (!navigator.geolocation) return
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       ({ coords: { latitude, longitude } }) => {
         setLocating(false)
-        mapInst.current.setCenter(new window.kakao.maps.LatLng(latitude, longitude))
-        mapInst.current.setLevel(3)
+        mapRef.current?.setView([latitude, longitude], 14)
       },
       () => setLocating(false),
     )
   }
 
-  function fitBounds() {
+  function fitAll() {
     const items = showAll ? allGeoItems : dayGeoItems
-    if (!items.length || !mapInst.current) return
-    const kakao = window.kakao.maps
-    if (items.length === 1) {
-      mapInst.current.setCenter(new kakao.LatLng(items[0].lat, items[0].lng))
-      mapInst.current.setLevel(4)
-    } else {
-      const bounds = new kakao.LatLngBounds()
-      items.forEach(i => bounds.extend(new kakao.LatLng(i.lat, i.lng)))
-      mapInst.current.setBounds(bounds, 60)
-    }
+    if (!items.length) return
+    items.length === 1
+      ? mapRef.current?.setView([items[0].lat, items[0].lng], 14)
+      : mapRef.current?.fitBounds(items.map(i => [i.lat, i.lng]), { padding: [50, 50] })
+  }
+
+  function openGoogleRoute() {
+    const items = showAll ? allGeoItems : dayGeoItems
+    if (!items.length) return
+    const pts = items.map(i => `${i.lat},${i.lng}`)
+    const url = pts.length === 1
+      ? `https://www.google.com/maps/search/?api=1&query=${pts[0]}`
+      : `https://www.google.com/maps/dir/${pts.join('/')}`
+    window.open(url, '_blank', 'noopener')
   }
 
   /* ── Placeholders ────────────────────────────────────── */
-  if (status === 'no-key')    return <MapPlaceholder icon="map" title="카카오맵 설정 필요" desc="VITE_KAKAO_MAPS_API_KEY를 설정하세요" />
-  if (status === 'no-coords') return <MapPlaceholder icon="location_off" title="지도에 표시할 위치가 없어요" desc="장소 검색으로 위치를 등록하면 여기에 나타납니다" dim />
-  if (status === 'error')     return <MapPlaceholder icon="error" title="지도를 불러오지 못했습니다" desc="잠시 후 다시 시도해 주세요" error />
+  if (status === 'no-coords') {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'48px 24px', background:'#F8FAFC', textAlign:'center', gap:14, minHeight:220 }}>
+        <div style={{ width:64, height:64, borderRadius:'50%', background:'#EFF6FF', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span className="material-symbols-outlined" style={{ fontSize:32, color:'#3B82F6', fontVariationSettings:"'FILL' 1" }}>location_off</span>
+        </div>
+        <p style={{ fontSize:17, fontWeight:800, color:'#0F172A' }}>지도에 표시할 위치가 없어요</p>
+        <p style={{ fontSize:13, color:'#64748B', lineHeight:1.7 }}>일정 추가 시 장소를 검색하면<br/>지도에 경로가 표시됩니다</p>
+      </div>
+    )
+  }
 
   const displayCount = (showAll ? allGeoItems : dayGeoItems).length
 
   return (
-    <div style={{ position: 'relative', width: '100%', height, background: '#E2E8F0', overflow: 'hidden' }}>
+    <div style={{ position:'relative', width:'100%', height, background:'#E2E8F0' }}>
 
-      {/* Loading overlay */}
-      {status === 'loading' && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 2, background: '#F1F5F9' }}>
-          <div style={{ width: 40, height: 40, border: '3.5px solid #E2E8F0', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'mapSpin 0.8s linear infinite' }} />
-          <p style={{ fontSize: 14, color: '#64748B', fontWeight: 600 }}>지도 불러오는 중...</p>
-        </div>
-      )}
-
-      <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+      {/* Map container */}
+      <div ref={mapContainerRef} style={{ width:'100%', height:'100%' }} />
 
       {status === 'ready' && (
         <>
-          {/* ── Top-left: mode toggle + legend ── */}
-          <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 5, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 165 }}>
+          {/* ── Top-left controls ── */}
+          <div style={{ position:'absolute', top:12, left:12, zIndex:1000, display:'flex', flexDirection:'column', gap:8, maxWidth:170 }}>
 
             {/* Today / All toggle */}
-            <button
-              onClick={() => setShowAll(p => !p)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 7,
-                background: showAll ? '#3B82F6' : 'rgba(255,255,255,0.96)',
-                backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-                color: showAll ? '#fff' : '#0F172A',
-                border: 'none', borderRadius: 22, padding: '8px 16px',
-                fontSize: 13, fontWeight: 800, cursor: 'pointer',
-                boxShadow: showAll
-                  ? '0 4px 16px rgba(59,130,246,0.45)'
-                  : '0 2px 14px rgba(0,0,0,0.16)',
-                transition: 'all 0.2s',
-              }}
-            >
-              <span style={{ fontSize: 15 }}>{showAll ? '🗺️' : '📅'}</span>
+            <MapBtn active={showAll} onClick={() => setShowAll(p => !p)} style={{ borderRadius:22, width:'auto', padding:'8px 16px' }}>
+              <span style={{ fontSize:15 }}>{showAll ? '🗺️' : '📅'}</span>
               {showAll ? '전체 여행' : '오늘 일정'}
-            </button>
+            </MapBtn>
 
-            {/* Day legend (all-mode) */}
+            {/* Day legend */}
             {showAll && dates.length > 0 && (
-              <div style={{
-                background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)', borderRadius: 14,
-                padding: '8px 12px', boxShadow: '0 2px 14px rgba(0,0,0,0.14)',
-                maxHeight: 180, overflowY: 'auto',
-              }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>Day 색상</p>
+              <div style={{ background:'rgba(255,255,255,0.97)', backdropFilter:'blur(14px)', borderRadius:14, padding:'8px 12px', boxShadow:'0 2px 16px rgba(0,0,0,0.14)', maxHeight:180, overflowY:'auto' }}>
+                <p style={{ fontSize:10, fontWeight:700, color:'#94A3B8', textTransform:'uppercase', letterSpacing:0.6, marginBottom:6 }}>Day 색상</p>
                 {dates.map((d, i) => (
-                  <div key={d} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: DAY_COLORS[i % DAY_COLORS.length], flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: '#0F172A', fontWeight: 700 }}>Day {i + 1}</span>
-                    <span style={{ fontSize: 10, color: '#94A3B8' }}>{d.slice(5).replace('-', '/')}</span>
+                  <div key={d} style={{ display:'flex', alignItems:'center', gap:7, padding:'2px 0' }}>
+                    <div style={{ width:10, height:10, borderRadius:'50%', background:DAY_COLORS[i % DAY_COLORS.length], flexShrink:0 }} />
+                    <span style={{ fontSize:11, color:'#0F172A', fontWeight:700 }}>Day {i+1}</span>
+                    <span style={{ fontSize:10, color:'#94A3B8' }}>{d.slice(5).replace('-','/')}</span>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Place count pill */}
+            {/* Place count */}
             {displayCount > 0 && (
-              <div style={{
-                background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                borderRadius: 20, padding: '5px 12px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
-                display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
-              }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#0F172A' }}>📍 {displayCount}곳</span>
+              <div style={{ background:'rgba(255,255,255,0.97)', backdropFilter:'blur(14px)', borderRadius:20, padding:'5px 12px', boxShadow:'0 2px 10px rgba(0,0,0,0.12)', display:'inline-flex', alignItems:'center', gap:5, alignSelf:'flex-start' }}>
+                <span style={{ fontSize:12, fontWeight:700, color:'#0F172A' }}>📍 {displayCount}곳</span>
               </div>
             )}
           </div>
 
-          {/* ── Top-right: control buttons ── */}
-          <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 5, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[
-              {
-                icon: locating ? 'progress_activity' : 'my_location',
-                onClick: locate,
-                title: '현재 위치',
-                color: locating ? '#94A3B8' : '#3B82F6',
-              },
-              {
-                icon: 'add',
-                onClick: () => mapInst.current?.setLevel(Math.max(1, mapInst.current.getLevel() - 1)),
-                title: '확대',
-                color: '#0F172A',
-              },
-              {
-                icon: 'remove',
-                onClick: () => mapInst.current?.setLevel(Math.min(14, mapInst.current.getLevel() + 1)),
-                title: '축소',
-                color: '#0F172A',
-              },
-            ].map(({ icon, onClick, title, color }) => (
-              <button
-                key={icon}
-                onClick={onClick}
-                title={title}
-                style={{
-                  width: 44, height: 44, borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  border: 'none', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 2px 14px rgba(0,0,0,0.16)', color,
-                  transition: 'transform 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = '' }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 20, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
-              </button>
-            ))}
+          {/* ── Top-right controls ── */}
+          <div style={{ position:'absolute', top:12, right:12, zIndex:1000, display:'flex', flexDirection:'column', gap:8 }}>
+            <MapBtn icon={locating ? 'progress_activity' : 'my_location'} title="현재 위치" onClick={locate} style={{ color: locating ? '#94A3B8' : '#3B82F6' }} />
+            <MapBtn icon="add" title="확대" onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom()||13)+1)} />
+            <MapBtn icon="remove" title="축소" onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom()||13)-1)} />
           </div>
 
-          {/* ── Bottom-right: fit bounds ── */}
-          <button
-            onClick={fitBounds}
-            style={{
-              position: 'absolute', bottom: 14, right: 14, zIndex: 5,
-              display: 'flex', alignItems: 'center', gap: 5,
-              background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              border: 'none', borderRadius: 22, padding: '8px 14px',
-              fontSize: 12, fontWeight: 700, color: '#0F172A', cursor: 'pointer',
-              boxShadow: '0 2px 14px rgba(0,0,0,0.16)',
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>fit_screen</span>
-            전체 보기
-          </button>
+          {/* ── Bottom controls ── */}
+          <div style={{ position:'absolute', bottom:14, left:12, right:12, zIndex:1000, display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
+            {/* Google Maps route link */}
+            <button
+              onClick={openGoogleRoute}
+              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.97)', backdropFilter:'blur(14px)', border:'none', borderRadius:22, padding:'8px 14px', fontSize:12, fontWeight:800, color:'#0F172A', cursor:'pointer', boxShadow:'0 2px 14px rgba(0,0,0,0.16)' }}
+            >
+              <span style={{ fontSize:16 }}>🌍</span>구글맵에서 경로 보기
+            </button>
+
+            <MapBtn icon="fit_screen" title="전체 보기" onClick={fitAll} style={{ borderRadius:22, width:'auto', padding:'8px 14px', fontSize:12, gap:5 }}>
+              전체 보기
+            </MapBtn>
+          </div>
         </>
       )}
 
-      <style>{`@keyframes mapSpin { to { transform: rotate(360deg) } }`}</style>
-    </div>
-  )
-}
-
-/* ── Placeholder ─────────────────────────────────────────── */
-function MapPlaceholder({ icon, title, desc, dim, error }) {
-  const color = error ? '#EF4444' : dim ? '#94A3B8' : '#3B82F6'
-  const bg    = error ? '#FEF2F2' : '#F8FAFC'
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '44px 24px', background: bg, textAlign: 'center', gap: 12, minHeight: 200 }}>
-      <div style={{ width: 56, height: 56, borderRadius: '50%', background: error ? '#FEE2E2' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 28, color, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
-      </div>
-      <p style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{title}</p>
-      <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.7 }}>{desc}</p>
+      {/* Leaflet popup & tile override styles */}
+      <style>{`
+        .tmap-popup-wrap .leaflet-popup-content-wrapper {
+          padding:0; border-radius:16px; overflow:hidden;
+          box-shadow:0 8px 36px rgba(0,0,0,0.22); border:none;
+        }
+        .tmap-popup-wrap .leaflet-popup-content { margin:0; }
+        .tmap-popup-wrap .leaflet-popup-tip-container { display:none; }
+        .tmap-popup { font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif; min-width:210px; }
+        .tmap-popup-header { padding:12px 14px 10px; }
+        .tmap-popup-meta { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+        .tmap-day-badge { background:rgba(0,0,0,0.22); color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:20px; }
+        .tmap-popup-title { color:#fff; font-size:15px; font-weight:800; line-height:1.3; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .tmap-popup-time { color:rgba(255,255,255,0.85); font-size:11px; margin-top:3px; }
+        .tmap-popup-body { padding:10px 14px 12px; background:#fff; }
+        .tmap-popup-place { font-size:12px; color:#64748B; margin:0 0 5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .tmap-popup-cost { font-size:15px; font-weight:800; margin:0 0 8px; }
+        .tmap-nav-row { display:flex; gap:7px; }
+        .tmap-nav-btn { flex:1; text-align:center; font-size:12px; font-weight:700; padding:8px 6px; border-radius:10px; text-decoration:none; }
+        .tmap-nav-kakao { background:#FFCD29; color:#3C1E1E; }
+        .tmap-nav-google { background:#4285F4; color:#fff; }
+        .leaflet-control-attribution { font-size:9px !important; }
+      `}</style>
     </div>
   )
 }

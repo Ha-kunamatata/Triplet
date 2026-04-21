@@ -1,6 +1,12 @@
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-export default function DayTab({ date, dayNumber, isSelected, count, hasFlight, hasStay, onClick }) {
+function fmtDayCost(n) {
+  if (n >= 100000) return `${Math.round(n / 10000)}만`
+  if (n >= 10000)  return `${(n / 10000).toFixed(1)}만`
+  return `${Math.round(n / 1000)}k`
+}
+
+export default function DayTab({ date, dayNumber, isSelected, count, hasFlight, hasStay, dayCost = 0, onClick }) {
   const d = new Date(date)
   const dow = WEEKDAYS[d.getDay()]
   const isWeekend = d.getDay() === 0 || d.getDay() === 6
@@ -29,8 +35,15 @@ export default function DayTab({ date, dayNumber, isSelected, count, hasFlight, 
         {dow}
       </span>
 
+      {/* 일비용 */}
+      {dayCost > 0 && (
+        <span style={{ fontSize: 9, fontWeight: 700, color: isSelected ? 'rgba(255,255,255,0.78)' : '#F97316', lineHeight: 1, marginTop: 1 }}>
+          {fmtDayCost(dayCost)}
+        </span>
+      )}
+
       {/* 아이콘 배지 행 */}
-      <div style={{ display: 'flex', gap: 2, marginTop: 2, minHeight: 14, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 2, marginTop: 1, minHeight: 14, alignItems: 'center' }}>
         {hasFlight && (
           <span style={{ fontSize: 11, lineHeight: 1 }} title="항공편">✈️</span>
         )}

@@ -124,6 +124,17 @@ export default function TripDetailPage() {
   )
 
   const dates = generateDateRange(trip.startDate, trip.endDate)
+
+  // Day cost lookup
+  const dayCosts = {}
+  dates.forEach(d => {
+    const c = [
+      ...schedules.filter(s => s.date === d).map(s => Number(s.cost) || 0),
+      ...tripItems.filter(i => i.date === d || i.checkIn === d).map(i => Number(i.cost) || 0),
+    ].reduce((a, b) => a + b, 0)
+    if (c > 0) dayCosts[d] = c
+  })
+
   // 검색 필터 적용
   const q = searchQuery.toLowerCase().trim()
   const daySchedules = schedules
@@ -215,6 +226,7 @@ export default function TripDetailPage() {
                 count={dayItemCount}
                 hasFlight={hasFlight}
                 hasStay={hasStay}
+                dayCost={dayCosts[date] ?? 0}
                 onClick={() => setSelectedDate(date)}
               />
             )
@@ -360,49 +372,69 @@ export default function TripDetailPage() {
           onRemove={removeCheckItem}
         />
       ) : (
-        <>
-          {/* Map view */}
+        /* ── Map view (upgraded) ── */
+        <div>
           <TripMap
-            schedules={[
-              ...daySchedules,
-              ...dayTripItems.filter(i => i.lat && i.lng).map(i => ({
-                id: i.id, title: i.title || i.name || i.flightNumber,
-                lat: i.lat, lng: i.lng,
-                category: i.type === 'STAY' ? 'accommodation' : 'attraction',
-              })),
-            ]}
-            height={380}
+            schedules={schedules}
+            tripItems={tripItems}
+            dates={dates}
+            selectedDate={selectedDate}
+            height="clamp(300px, 55vh, 520px)"
           />
 
-          {/* Schedule chip list below map */}
-          {daySchedules.length > 0 && (
+          {/* Day schedule strip below map */}
+          {(daySchedules.length > 0 || dayTripItems.length > 0) ? (
             <div style={{ background: 'var(--c-surface)', borderTop: '1px solid var(--c-border)' }}>
-              <p style={{ padding: '12px 16px 4px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-semibold)', color: 'var(--c-text-3)' }}>
-                {formatDisplayDate(selectedDate)} · {daySchedules.length}개 일정
-              </p>
-              <div style={{ display: 'flex', gap: 8, padding: '6px 16px 14px', overflowX: 'auto', scrollbarWidth: 'none' }}>
-                {daySchedules.map((s, idx) => {
-                  const cat = SCHEDULE_CATEGORIES.find(c => c.key === s.category) ?? SCHEDULE_CATEGORIES.at(-1)
+              <div style={{ padding: '12px 16px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-1)' }}>
+                  {formatDisplayDate(selectedDate)} 일정
+                </p>
+                <span style={{ fontSize: 12, color: 'var(--c-text-3)', fontWeight: 600 }}>
+                  {daySchedules.length + dayTripItems.length}개
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, padding: '0 16px 14px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+                {[...dayTripItems, ...daySchedules].map(item => {
+                  const isItem = !!item.type
+                  const meta = isItem
+                    ? ITEM_TYPE_META[item.type]
+                    : SCHEDULE_CATEGORIES.find(c => c.key === item.category) ?? SCHEDULE_CATEGORIES.at(-1)
+                  const color = meta?.color ?? '#94A3B8'
+                  const icon  = meta?.icon  ?? 'place'
+                  const title = item.title || item.name || item.flightNumber || item.fromName || '일정'
+                  const time  = item.startTime || item.departureTime?.slice(11, 16) || ''
                   return (
-                    <div key={s.id} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--c-surface2)', border: `1.5px solid ${cat.color}30`, borderRadius: 'var(--r-xl)', padding: '8px 14px', cursor: 'pointer', transition: 'all var(--t-fast)' }}
-                      onClick={() => navigate(`/trips/${tripId}/schedule/${s.id}/edit`)}
+                    <div
+                      key={item.id}
+                      onClick={() => navigate(isItem
+                        ? `/trips/${tripId}/item/${item.id}/edit`
+                        : `/trips/${tripId}/schedule/${item.id}/edit`
+                      )}
+                      style={{
+                        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 9,
+                        background: 'var(--c-surface2)', borderRadius: 'var(--r-xl)',
+                        border: `1.5px solid ${color}30`, padding: '9px 14px', cursor: 'pointer',
+                        transition: 'all var(--t-fast)',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = color + '12'; e.currentTarget.style.borderColor = color + '60' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--c-surface2)'; e.currentTarget.style.borderColor = color + '30' }}
                     >
-                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: cat.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{idx + 1}</span>
+                      <div style={{ width: 30, height: 30, borderRadius: 9, background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 15, color, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                      </div>
                       <div>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-1)', whiteSpace: 'nowrap' }}>{s.title}</p>
-                        {s.startTime && <p style={{ fontSize: 11, color: 'var(--c-text-3)' }}>{s.startTime}</p>}
+                        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-1)', whiteSpace: 'nowrap', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</p>
+                        {time && <p style={{ fontSize: 11, color: 'var(--c-text-3)', marginTop: 1 }}>{time}</p>}
                       </div>
                     </div>
                   )
                 })}
               </div>
             </div>
-          )}
-
-          {daySchedules.length === 0 && (
+          ) : (
             <EmptyState icon="event_note" title="이 날의 일정이 없어요" description="+ 버튼으로 일정을 추가해보세요" />
           )}
-        </>
+        </div>
       )}
 
       {/* ══ FAB ══ */}

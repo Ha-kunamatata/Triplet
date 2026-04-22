@@ -1,14 +1,28 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 export default function Modal({ title, children, onClose, confirmLabel, onConfirm, danger = false }) {
+  const firstBtnRef = useRef(null)
+
   useEffect(() => {
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
+    firstBtnRef.current?.focus()
+
+    function onKeyDown(e) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = ''
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [onClose])
 
   return (
     <div
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={title ? 'modal-title' : undefined}
       style={{
         position: 'fixed', inset: 0,
         background: 'rgba(15,23,42,0.55)',
@@ -30,11 +44,10 @@ export default function Modal({ title, children, onClose, confirmLabel, onConfir
           overflowY: 'auto',
         }}
       >
-        {/* Handle */}
         <div style={{ width: 36, height: 4, background: 'var(--c-border2)', borderRadius: 'var(--r-full)', margin: '10px auto 20px', flexShrink: 0 }} />
 
         {title && (
-          <p style={{ fontSize: 'var(--text-md)', fontWeight: 'var(--fw-bold)', marginBottom: 'var(--sp-4)', color: 'var(--c-text-1)' }}>
+          <p id="modal-title" style={{ fontSize: 'var(--text-md)', fontWeight: 'var(--fw-bold)', marginBottom: 'var(--sp-4)', color: 'var(--c-text-1)' }}>
             {title}
           </p>
         )}
@@ -44,12 +57,13 @@ export default function Modal({ title, children, onClose, confirmLabel, onConfir
         {onConfirm && (
           <div style={{ display: 'flex', gap: 10, marginTop: 'var(--sp-5)' }}>
             <button
+              ref={firstBtnRef}
               onClick={onClose}
               style={{
                 flex: 1, padding: '14px', borderRadius: 'var(--r-xl)',
                 background: 'var(--c-surface2)', border: '1px solid var(--c-border)',
                 fontSize: 'var(--text-base)', fontWeight: 'var(--fw-semibold)',
-                color: 'var(--c-text-2)',
+                color: 'var(--c-text-2)', transition: 'background var(--t-fast)',
               }}
             >
               취소
@@ -62,6 +76,7 @@ export default function Modal({ title, children, onClose, confirmLabel, onConfir
                 color: '#fff',
                 fontSize: 'var(--text-base)', fontWeight: 'var(--fw-semibold)',
                 boxShadow: danger ? '0 4px 14px rgba(239,68,68,0.35)' : 'var(--shadow-primary)',
+                transition: 'all var(--t-fast)',
               }}
             >
               {confirmLabel ?? '확인'}
@@ -69,7 +84,13 @@ export default function Modal({ title, children, onClose, confirmLabel, onConfir
           </div>
         )}
       </div>
-      <style>{`@keyframes sheetUp { from { transform: translateY(100%); opacity:0; } to { transform: translateY(0); opacity:1; } }`}</style>
+      <style>{`
+        @keyframes sheetUp { from { transform: translateY(100%); opacity:0; } to { transform: translateY(0); opacity:1; } }
+        @media (min-width: 768px) {
+          [role="dialog"] { align-items: center !important; padding: 20px !important; }
+          [role="dialog"] > div { border-radius: var(--r-2xl) !important; max-width: 480px !important; }
+        }
+      `}</style>
     </div>
   )
 }

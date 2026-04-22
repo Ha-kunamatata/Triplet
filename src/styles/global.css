@@ -737,3 +737,32 @@ html.light {
   background: var(--c-primary-light);
   color: var(--c-primary);
 }
+
+/* ─ Bottom Nav 탭 버튼 터치 피드백 ─ */
+.bottom-nav button:active:not([tabindex="-1"]) {
+  transform: scale(0.88);
+  opacity: 0.75;
+}
+
+/* ─ MoreItem 터치/호버 피드백 ─ */
+.more-item:hover,
+.more-item:active {
+  background: var(--c-surface2) !important;
+}
+
+/* ─ focus-visible 글로벌 링 ─ */
+:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─ 인터랙티브 요소 공통 피드백 ─ */
+.interactive {
+  transition: opacity var(--t-fast), transform var(--t-fast);
+  cursor: pointer;
+}
+.interactive:active { opacity: 0.72; transform: scale(0.97); }
+@media (hover: hover) {
+  .interactive:hover { opacity: 0.88; }
+}

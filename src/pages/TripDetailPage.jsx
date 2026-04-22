@@ -449,7 +449,7 @@ export default function TripDetailPage() {
       {/* ══ FAB ══ */}
       <button
         onClick={() => navigate(`/trips/${tripId}/item/add`, { state: { date: selectedDate } })}
-        style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)', right: 20, width: 56, height: 56, borderRadius: '50%', background: 'var(--c-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(59,130,246,0.45)', zIndex: 50, transition: 'transform var(--t-fast),box-shadow var(--t-fast)' }}
+        style={{ position: 'fixed', bottom: 'calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px)', right: 20, width: 56, height: 56, borderRadius: '50%', background: 'var(--c-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(59,130,246,0.45)', zIndex: 50, transition: 'transform var(--t-fast),box-shadow var(--t-fast)' }}
         onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(59,130,246,0.55)' }}
         onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 6px 20px rgba(59,130,246,0.45)' }}
       >

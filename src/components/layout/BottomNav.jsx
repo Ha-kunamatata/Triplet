@@ -89,8 +89,8 @@ export default function BottomNav() {
         className="bottom-nav"
         aria-label="주요 탐색"
         style={{
-          position: 'fixed',
-          bottom: 0, left: 0, right: 0,
+          /* position: fixed 제거 — 인라인 레이아웃으로 iOS Safari 탭바 겹침 해결 */
+          flexShrink: 0,
           height: 'calc(var(--bottom-nav-h) + var(--safe-bottom))',
           paddingBottom: 'var(--safe-bottom)',
           background: isDark ? 'rgba(26,35,51,0.97)' : 'rgba(255,255,255,0.97)',
@@ -112,10 +112,9 @@ export default function BottomNav() {
           return (
             <button
               key={tab.key}
-              onClick={tab.dim ? undefined : tab.onPress}
+              onClick={tab.onPress}
               aria-label={tab.label}
               aria-current={tab.active ? 'page' : undefined}
-              tabIndex={tab.dim ? -1 : 0}
               style={{
                 flex: 1,
                 display: 'flex',
@@ -125,12 +124,11 @@ export default function BottomNav() {
                 gap: 3,
                 border: 'none',
                 background: 'none',
-                cursor: tab.dim ? 'default' : 'pointer',
+                cursor: 'pointer',
                 color,
                 transition: 'color 0.15s, transform 0.12s',
                 position: 'relative',
                 paddingTop: 6,
-                pointerEvents: tab.dim ? 'none' : 'auto',
                 WebkitTapHighlightColor: 'transparent',
               }}
             >

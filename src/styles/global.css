@@ -139,7 +139,9 @@ img { max-width: 100%; display: block; }
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 100dvh;
+  /* height 고정 → 내부 스크롤로 iOS Safari 탭바 덮힘 문제 해결 */
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .app-sidebar { display: none; }
@@ -148,15 +150,21 @@ img { max-width: 100%; display: block; }
   flex: 1;
   width: 100%;
   min-width: 0;
-  /* 하단 탭바 높이 + safe area만큼 여백 */
-  padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom));
+  min-height: 0; /* flex shrink 허용 */
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   background: var(--c-bg);
+  /* padding-bottom 불필요 — 탭바가 인라인 레이아웃으로 */
 }
 
 /* ── 태블릿 (768px ~ 1023px) ── */
 @media (min-width: 768px) {
   .app-shell {
     flex-direction: row;
+    height: 100dvh;
+    overflow: hidden;
   }
 
   .app-sidebar {

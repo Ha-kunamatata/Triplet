@@ -32,7 +32,7 @@ export default function RegisterPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--c-surface)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100dvh', width: '100%', background: 'var(--c-surface)', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--c-border)' }}>
         <Link to="/login" style={{ width: 36, height: 36, borderRadius: 'var(--r-md)', background: 'var(--c-surface2)', border: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-2)' }}>

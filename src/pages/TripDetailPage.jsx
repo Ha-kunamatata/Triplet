@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { getTrip, getSchedules, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem, updateTripBudgetData } from '../firebase/firestore'
+import { getTrip, getSchedules, addSchedule, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem, updateTripBudgetData } from '../firebase/firestore'
 import { generateDateRange, formatDisplayDate, formatShortDate, getDDay, calcTripStatus } from '../utils/dateUtils'
 import { getItemSortTime } from '../utils/tripItemUtils'
 import DayTab from '../components/schedule/DayTab'
+import KmlImportSheet from '../components/schedule/KmlImportSheet'
 import TripMap from '../components/maps/TripMap'
 import { ScheduleSkeleton } from '../components/common/LoadingSpinner'
 import EmptyState from '../components/common/EmptyState'
@@ -46,6 +47,7 @@ export default function TripDetailPage() {
   const [categoryBudgets, setCategoryBudgets] = useState({})
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+  const [showKmlImport, setShowKmlImport] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -157,6 +159,28 @@ export default function TripDetailPage() {
     await deleteSchedule(id)
     setSchedules(prev => prev.filter(s => s.id !== id))
     setToast({ message: '일정이 삭제되었습니다.' })
+  }
+
+  async function handleKmlImport(places) {
+    const added = []
+    for (const place of places) {
+      const id = await addSchedule(tripId, {
+        title: place.name,
+        date: selectedDate,
+        startTime: '',
+        endTime: '',
+        category: 'attraction',
+        memo: place.description || '',
+        cost: '',
+        place: place.name,
+        placeAddress: '',
+        lat: place.lat,
+        lng: place.lng,
+      })
+      added.push({ id, title: place.name, date: selectedDate, startTime: '', endTime: '', category: 'attraction', memo: place.description || '', cost: '', place: place.name, placeAddress: '', lat: place.lat, lng: place.lng })
+    }
+    setSchedules(prev => [...prev, ...added])
+    setToast({ message: `${places.length}곳이 추가되었습니다.` })
   }
 
   return (
@@ -285,11 +309,19 @@ export default function TripDetailPage() {
                     {dayCost > 0 && <span style={{ color: 'var(--c-primary)', fontWeight: 700 }}> · {fmtCost(dayCost)}</span>}
                   </p>
                 </div>
-                {daySchedules.length > 0 && (
-                  <p style={{ fontSize: 11, color: 'var(--c-text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 12 }}>drag_indicator</span>길게 눌러 순서 변경
-                  </p>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={() => setShowKmlImport(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, background: 'linear-gradient(135deg,#EFF6FF,#F0FDF4)', border: '1px solid #BFDBFE', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#1D4ED8' }}
+                  >
+                    <span style={{ fontSize: 14 }}>🗺️</span>내 지도
+                  </button>
+                  {daySchedules.length > 0 && (
+                    <p style={{ fontSize: 11, color: 'var(--c-text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 12 }}>drag_indicator</span>순서 변경
+                    </p>
+                  )}
+                </div>
               </div>
             )
           })()}
@@ -455,6 +487,15 @@ export default function TripDetailPage() {
       >
         <span className="material-symbols-outlined" style={{ fontSize: 28 }}>add</span>
       </button>
+
+      {/* ══ KML Import ══ */}
+      {showKmlImport && (
+        <KmlImportSheet
+          selectedDate={selectedDate}
+          onClose={() => setShowKmlImport(false)}
+          onImport={handleKmlImport}
+        />
+      )}
 
       {/* ══ Modals ══ */}
       {showDeleteModal && (

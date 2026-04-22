@@ -34,51 +34,60 @@ export default function HomePage() {
 
   return (
       <div style={{ minHeight: '100%' }}>
-      {/* ── Top header ── */}
-      <div style={{ background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)', padding: '20px 20px 0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+      {/* ── Top header — Toss 스타일 ── */}
+      <div style={{ background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)' }}>
+        {/* 인사 + 버튼 */}
+        <div style={{ padding: '20px 20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--c-text-3)', marginBottom: 3 }}>{getGreeting()}</p>
-            <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--fw-extrabold)', color: 'var(--c-text-1)', letterSpacing: -0.5 }}>
-              {user?.displayName ?? '여행자'}님 👋
+            <p style={{ fontSize: 12, color: 'var(--c-text-3)', fontWeight: 500, marginBottom: 2 }}>{getGreeting()}</p>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--c-text-1)', letterSpacing: -0.7, lineHeight: 1.2 }}>
+              {user?.displayName ?? '여행자'}님의 여행
             </h1>
           </div>
           <button
             onClick={() => navigate('/trips/new')}
+            className="toss-btn"
             style={{
-              width: 44, height: 44, borderRadius: 'var(--r-xl)',
-              background: 'var(--c-primary)', color: '#fff',
+              width: 46, height: 46, borderRadius: 'var(--r-xl)',
+              background: 'linear-gradient(135deg, var(--c-primary) 0%, #6366F1 100%)', color: '#fff',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: 'var(--shadow-primary)', flexShrink: 0,
-              transition: 'transform var(--t-fast), box-shadow var(--t-fast)',
+              boxShadow: '0 4px 16px rgba(99,102,241,0.35)', flexShrink: 0,
             }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(59,130,246,0.5)' }}
-            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--shadow-primary)' }}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: 26 }}>add</span>
+            <span className="material-symbols-outlined" style={{ fontSize: 24, fontVariationSettings: "'FILL' 1" }}>add</span>
           </button>
         </div>
 
-        {/* Stats strip */}
+        {/* 통계 그리드 — Toss 스타일 큰 숫자 */}
         {!loading && trips.length > 0 && (
-          <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-            <StatPill icon="flight_takeoff" value={upcoming.length} label="예정" color="var(--c-primary)" bg="var(--c-primary-light)" />
-            <StatPill icon="explore" value={ongoing.length} label="여행 중" color="#10B981" bg="#ECFDF5" />
-            <StatPill icon="check_circle" value={completed.length} label="완료" color="var(--c-text-3)" bg="var(--c-surface2)" />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: '1px solid var(--c-border)', borderBottom: '1px solid var(--c-border)' }}>
+            {[
+              { value: upcoming.length,  label: '예정',    icon: 'flight_takeoff', color: 'var(--c-primary)' },
+              { value: ongoing.length,   label: '여행 중', icon: 'explore',        color: '#10B981' },
+              { value: completed.length, label: '완료',    icon: 'check_circle',   color: 'var(--c-text-3)' },
+            ].map(({ value, label, icon, color }, i) => (
+              <div key={label} style={{ padding: '14px 0', textAlign: 'center', borderRight: i < 2 ? '1px solid var(--c-border)' : 'none' }}>
+                <p style={{ fontSize: 26, fontWeight: 900, color: value > 0 ? color : 'var(--c-text-3)', letterSpacing: -1, lineHeight: 1 }}>{value}</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 4 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 12, color: 'var(--c-text-3)', fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                  <p style={{ fontSize: 11, color: 'var(--c-text-3)', fontWeight: 500 }}>{label}</p>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Filter tabs */}
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 12, scrollbarWidth: 'none' }}>
+        {/* 필터 탭 */}
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '10px 16px 12px', scrollbarWidth: 'none' }}>
           {FILTERS.map(f => (
             <button key={f.key} onClick={() => setFilter(f.key)} style={{
               padding: '7px 16px', borderRadius: 'var(--r-full)', flexShrink: 0,
               background: filter === f.key ? 'var(--c-primary)' : 'var(--c-surface2)',
               color: filter === f.key ? '#fff' : 'var(--c-text-2)',
-              border: filter === f.key ? 'none' : '1px solid var(--c-border)',
-              fontSize: 'var(--text-sm)', fontWeight: filter === f.key ? 'var(--fw-bold)' : 'var(--fw-medium)',
-              boxShadow: filter === f.key ? 'var(--shadow-primary)' : 'none',
-              transition: 'all var(--t-base)',
+              border: 'none',
+              fontSize: 13, fontWeight: filter === f.key ? 700 : 500,
+              boxShadow: filter === f.key ? '0 2px 10px rgba(59,130,246,0.3)' : 'none',
+              transition: 'all 0.15s',
             }}>
               {f.label}
             </button>

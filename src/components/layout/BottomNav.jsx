@@ -87,6 +87,7 @@ export default function BottomNav() {
       {/* ── 하단 탭바 ── */}
       <nav
         className="bottom-nav"
+        aria-label="주요 탐색"
         style={{
           position: 'fixed',
           bottom: 0, left: 0, right: 0,
@@ -111,7 +112,10 @@ export default function BottomNav() {
           return (
             <button
               key={tab.key}
-              onClick={tab.onPress}
+              onClick={tab.dim ? undefined : tab.onPress}
+              aria-label={tab.label}
+              aria-current={tab.active ? 'page' : undefined}
+              tabIndex={tab.dim ? -1 : 0}
               style={{
                 flex: 1,
                 display: 'flex',
@@ -123,9 +127,11 @@ export default function BottomNav() {
                 background: 'none',
                 cursor: tab.dim ? 'default' : 'pointer',
                 color,
-                transition: 'color 0.15s',
+                transition: 'color 0.15s, transform 0.12s',
                 position: 'relative',
                 paddingTop: 6,
+                pointerEvents: tab.dim ? 'none' : 'auto',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
               {/* 활성 인디케이터 (상단 2px 바) */}
@@ -246,6 +252,7 @@ function MoreItem({ icon, label, color, onPress }) {
   return (
     <button
       onClick={onPress}
+      className="more-item"
       style={{
         width: '100%',
         display: 'flex',
@@ -259,10 +266,9 @@ function MoreItem({ icon, label, color, onPress }) {
         fontSize: 15,
         fontWeight: 500,
         textAlign: 'left',
-        transition: 'background 0.1s',
+        transition: 'background var(--t-fast)',
+        WebkitTapHighlightColor: 'transparent',
       }}
-      onTouchStart={e => e.currentTarget.style.background = 'var(--c-surface2)'}
-      onTouchEnd={e => e.currentTarget.style.background = 'transparent'}
     >
       <span
         className="material-symbols-outlined"

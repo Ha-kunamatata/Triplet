@@ -1,216 +1,366 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
-import { loadKakaoMaps } from '../../utils/kakaoMaps'
-import { SCHEDULE_CATEGORIES, ITEM_TYPES, ITEM_TYPE_META } from '../../constants'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-/* ── 카테고리별 색상 ─────────────────────── */
+/* Suppress Leaflet's broken default icon in bundlers */
+delete L.Icon.Default.prototype._getIconUrl
+
+/* ── Constants ──────────────────────────────────────────── */
+const DAY_COLORS = [
+  '#3B82F6','#8B5CF6','#EC4899','#F97316','#10B981',
+  '#EF4444','#F59E0B','#06B6D4','#84CC16','#6366F1',
+  '#14B8A6','#F43F5E','#A855F7','#22C55E','#FB923C',
+]
+
 const CAT_COLORS = {
-  attraction:    '#1D9E75',
-  restaurant:    '#EF9F27',
-  cafe:          '#7F77DD',
-  accommodation: '#378ADD',
-  transport:     '#7C3AED',
-  shopping:      '#EC4899',
-  etc:           '#94A3B8',
-  // tripItem types
-  FLIGHT:        '#D4537E',
-  STAY:          '#378ADD',
-  PLACE:         '#1D9E75',
-  TRANSPORT:     '#7C3AED',
-  MEMO:          '#F59E0B',
+  attraction:'#1D9E75', restaurant:'#EF9F27', cafe:'#7F77DD',
+  accommodation:'#378ADD', transport:'#7C3AED', shopping:'#EC4899', etc:'#94A3B8',
+  FLIGHT:'#D4537E', STAY:'#378ADD', PLACE:'#1D9E75', TRANSPORT:'#7C3AED', MEMO:'#F59E0B',
+}
+const CAT_EMOJI = {
+  attraction:'🗺️', restaurant:'🍽️', cafe:'☕', accommodation:'🏨',
+  transport:'🚗', shopping:'🛍️', etc:'📌',
+  FLIGHT:'✈️', STAY:'🏨', PLACE:'📍', TRANSPORT:'🚌', MEMO:'📝',
 }
 
-function getColor(item) {
-  if (item.type) return CAT_COLORS[item.type] ?? '#3B82F6'
-  return CAT_COLORS[item.category] ?? '#3B82F6'
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+
+function getColor(item)  { return CAT_COLORS[item.type ?? item.category] ?? '#3B82F6' }
+function getEmoji(item)  { return CAT_EMOJI[item.type ?? item.category] ?? '📍' }
+function getTitle(item)  { return item.title || item.name || item.flightNumber || item.fromName || '장소' }
+
+/* ── Custom pin marker ──────────────────────────────────── */
+function makeDivIcon(color, emoji, num) {
+  const label = num > 9 ? '…' : String(num)
+  return L.divIcon({
+    className: '',
+    iconSize:  [38, 54],
+    iconAnchor:[19, 54],
+    popupAnchor:[0, -56],
+    html: `
+      <div style="width:38px;height:54px;position:relative;filter:drop-shadow(0 3px 5px rgba(0,0,0,0.32))">
+        <svg xmlns="http://www.w3.org/2000/svg" width="38" height="54" viewBox="0 0 38 54">
+          <path d="M19 2C11 2 4.5 8.5 4.5 16.5C4.5 28.5 19 52 19 52S33.5 28.5 33.5 16.5C33.5 8.5 27 2 19 2Z" fill="${color}"/>
+          <circle cx="19" cy="16.5" r="12" fill="white"/>
+          <circle cx="31" cy="7" r="8.5" fill="#0F172A" stroke="white" stroke-width="1.5"/>
+          <text x="31" y="10.5" text-anchor="middle" fill="white" font-size="8.5" font-weight="900" font-family="system-ui,-apple-system,sans-serif">${esc(label)}</text>
+        </svg>
+        <div style="position:absolute;top:4px;left:5.5px;width:25px;height:25px;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;pointer-events:none;user-select:none">${emoji}</div>
+      </div>`,
+  })
 }
 
-function getTitle(item) {
-  return item.title || item.name || item.flightNumber || item.fromName || '장소'
-}
-
-/* ── 핀 마커 SVG 생성 ───────────────────── */
-function makePinSVG(color, number) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="42" viewBox="0 0 30 42">
-    <path d="M15 1C8.1 1 2.5 6.6 2.5 13.5C2.5 23.4 15 41 15 41S27.5 23.4 27.5 13.5C27.5 6.6 21.9 1 15 1Z"
-      fill="${color}" stroke="white" stroke-width="2"/>
-    <circle cx="15" cy="13.5" r="7" fill="white"/>
-    <text x="15" y="17.5" text-anchor="middle" fill="${color}"
-      font-size="9" font-weight="700" font-family="-apple-system,sans-serif">${number}</text>
-  </svg>`
-  return 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg)
-}
-
-/* ── 정보 팝업 DOM 생성 ─────────────────── */
-function makeInfoDOM(item, color) {
-  const title  = getTitle(item)
-  const time   = item.startTime || item.visitTime || item.departureTime?.slice(11, 16) || ''
-  const place  = item.place || item.address || ''
-  const cost   = item.cost > 0 ? `${Number(item.cost).toLocaleString('ko-KR')}원` : ''
-  const lat    = item.lat
-  const lng    = item.lng
-  const mapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(title)},${lat},${lng}`
-
-  const div = document.createElement('div')
-  div.style.cssText = `
-    padding:12px 14px;min-width:160px;max-width:220px;
-    background:#fff;border-radius:12px;
-    box-shadow:0 4px 20px rgba(0,0,0,0.18);
-    font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;
-    position:relative;
-  `
-  div.innerHTML = `
-    <button class="iw-close" style="
-      position:absolute;top:8px;right:8px;
-      width:20px;height:20px;border:none;background:none;
-      cursor:pointer;font-size:14px;color:#94A3B8;line-height:1;
-    ">✕</button>
-    <p style="font-size:14px;font-weight:700;color:#0F172A;margin-bottom:6px;padding-right:20px;line-height:1.3">${title}</p>
-    ${time ? `<p style="font-size:12px;color:#64748B;margin-bottom:3px">⏰ ${time}</p>` : ''}
-    ${place ? `<p style="font-size:11px;color:#94A3B8;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${place}</p>` : ''}
-    ${cost ? `<p style="font-size:13px;font-weight:700;color:${color};margin-bottom:6px">${cost}</p>` : ''}
-    <a href="${mapUrl}" target="_blank" rel="noopener"
-      style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#3C1E1E;background:#FFCD29;padding:5px 10px;border-radius:8px;text-decoration:none;">
-      🗺️ 카카오맵으로 보기
-    </a>
-  `
-  return div
-}
-
-export default function TripMap({ schedules = [], height = 400 }) {
-  const mapRef    = useRef(null)
-  const [status, setStatus] = useState('idle')
-  const apiKey = import.meta.env.VITE_KAKAO_MAPS_API_KEY
-
-  const geoItems = useMemo(
-    () => schedules.filter(s => s.lat && s.lng),
-    [schedules],
-  )
-
-  useEffect(() => {
-    if (!apiKey)             { setStatus('no-key');    return }
-    if (geoItems.length === 0) { setStatus('no-coords'); return }
-    setStatus('loading')
-
-    loadKakaoMaps(apiKey)
-      .then(() => {
-        if (!mapRef.current) return
-        const kakao = window.kakao.maps
-
-        /* 지도 생성 */
-        const center = new kakao.LatLng(geoItems[0].lat, geoItems[0].lng)
-        const map = new kakao.Map(mapRef.current, { center, level: 5 })
-
-        /* 범위 자동 조정 */
-        if (geoItems.length > 1) {
-          const bounds = new kakao.LatLngBounds()
-          geoItems.forEach(s => bounds.extend(new kakao.LatLng(s.lat, s.lng)))
-          map.setBounds(bounds, 60)
-        }
-
-        /* 열린 팝업 추적 */
-        let activeOverlay = null
-
-        /* 마커 + 팝업 */
-        geoItems.forEach((item, idx) => {
-          const color = getColor(item)
-          const pos   = new kakao.LatLng(item.lat, item.lng)
-
-          /* 핀 마커 이미지 */
-          const markerImage = new kakao.MarkerImage(
-            makePinSVG(color, idx + 1),
-            new kakao.Size(30, 42),
-            { offset: new kakao.Point(15, 42) },
-          )
-          const marker = new kakao.Marker({ position: pos, image: markerImage, map })
-
-          /* 정보 팝업 CustomOverlay */
-          const infoDOM = makeInfoDOM(item, color)
-          const infoOverlay = new kakao.CustomOverlay({
-            position: pos, content: infoDOM,
-            xAnchor: 0.5, yAnchor: 1.8,
-            zIndex: 10,
-          })
-
-          /* 닫기 버튼 */
-          infoDOM.querySelector('.iw-close')?.addEventListener('click', e => {
-            e.stopPropagation()
-            infoOverlay.setMap(null)
-            activeOverlay = null
-          })
-
-          /* 마커 클릭 → 팝업 토글 */
-          kakao.event.addListener(marker, 'click', () => {
-            if (activeOverlay && activeOverlay !== infoOverlay) {
-              activeOverlay.setMap(null)
-            }
-            if (activeOverlay === infoOverlay) {
-              infoOverlay.setMap(null)
-              activeOverlay = null
-            } else {
-              infoOverlay.setMap(map)
-              activeOverlay = infoOverlay
-            }
-          })
-        })
-
-        /* 경로 폴리라인 */
-        if (geoItems.length > 1) {
-          new kakao.Polyline({
-            map,
-            path:           geoItems.map(s => new kakao.LatLng(s.lat, s.lng)),
-            strokeWeight:   3,
-            strokeColor:    '#3B82F6',
-            strokeOpacity:  0.65,
-            strokeStyle:    'solid',
-          })
-        }
-
-        setStatus('ready')
-      })
-      .catch(() => setStatus('error'))
-  }, [apiKey, geoItems])
-
-  if (status === 'no-key')    return <MapPlaceholder icon="map" title="카카오맵 설정 필요" desc={<>GitHub Secrets에 <code>VITE_KAKAO_MAPS_API_KEY</code> 를 추가하세요</>} />
-  if (status === 'no-coords') return <MapPlaceholder icon="location_off" title="지도에 표시할 위치가 없어요" desc="장소 검색으로 위치를 등록하면 여기에 나타납니다" dim />
-  if (status === 'error')     return <MapPlaceholder icon="error" title="지도를 불러오지 못했습니다" desc="잠시 후 다시 시도해 주세요" error />
-
-  return (
-    <div style={{ position: 'relative', width: '100%', height, background: '#E2E8F0', overflow: 'hidden' }}>
-      {status === 'loading' && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, zIndex: 2, background: '#F1F5F9' }}>
-          <div style={{ width: 32, height: 32, border: '3px solid var(--c-border)', borderTopColor: 'var(--c-primary)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-          <p style={{ fontSize: 13, color: 'var(--c-text-3)' }}>지도 불러오는 중...</p>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+/* ── Popup HTML ─────────────────────────────────────────── */
+function makePopupHTML(item, color, dayNum, markerColor) {
+  const title    = esc(getTitle(item))
+  const emoji    = getEmoji(item)
+  const time     = esc(item.startTime || item.visitTime || item.departureTime?.slice(11,16) || '')
+  const place    = esc(item.place || item.address || item.name || '')
+  const cost     = item.cost > 0 ? `${Number(item.cost).toLocaleString('ko-KR')}원` : ''
+  const kakaoUrl = `https://map.kakao.com/link/to/${encodeURIComponent(getTitle(item))},${item.lat},${item.lng}`
+  const googleUrl= `https://www.google.com/maps/dir/?api=1&destination=${item.lat},${item.lng}`
+  return `
+    <div class="tmap-popup">
+      <div class="tmap-popup-header" style="background:${markerColor}">
+        <div class="tmap-popup-meta">
+          ${dayNum ? `<span class="tmap-day-badge">Day ${dayNum}</span>` : ''}
+          <span style="font-size:16px">${emoji}</span>
         </div>
-      )}
-      <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
-
-      {/* 범례 */}
-      {status === 'ready' && geoItems.length > 0 && (
-        <div style={{
-          position: 'absolute', bottom: 10, left: 10, zIndex: 5,
-          background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
-          borderRadius: 10, padding: '6px 10px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}>
-          <span style={{ fontSize: 11, color: '#64748B' }}>📍 {geoItems.length}개 장소</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MapPlaceholder({ icon, title, desc, dim, error }) {
-  const color = error ? 'var(--c-error)' : dim ? 'var(--c-text-3)' : 'var(--c-primary)'
-  const bg    = error ? '#FEF2F2' : 'var(--c-surface2)'
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 24px', background: bg, textAlign: 'center', gap: 10 }}>
-      <div style={{ width: 52, height: 52, borderRadius: '50%', background: error ? '#FEE2E2' : 'var(--c-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 26, color, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+        <p class="tmap-popup-title">${title}</p>
+        ${time ? `<p class="tmap-popup-time">⏰ ${time}</p>` : ''}
       </div>
-      <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-text-1)' }}>{title}</p>
-      <p style={{ fontSize: 13, color: 'var(--c-text-3)', lineHeight: 1.7 }}>{desc}</p>
+      <div class="tmap-popup-body">
+        ${place ? `<p class="tmap-popup-place">${place}</p>` : ''}
+        ${cost  ? `<p class="tmap-popup-cost" style="color:${color}">${cost}</p>` : ''}
+        <div class="tmap-nav-row">
+          <a href="${kakaoUrl}" target="_blank" rel="noopener" class="tmap-nav-btn tmap-nav-kakao">🗺️ 카카오맵</a>
+          <a href="${googleUrl}" target="_blank" rel="noopener" class="tmap-nav-btn tmap-nav-google">🌍 구글맵</a>
+        </div>
+      </div>
+    </div>`
+}
+
+/* ── MapControl button helper ───────────────────────────── */
+function MapBtn({ icon, title, onClick, active, children, style: extraStyle }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+        background: active ? '#3B82F6' : 'rgba(255,255,255,0.97)',
+        backdropFilter:'blur(14px)', WebkitBackdropFilter:'blur(14px)',
+        color: active ? '#fff' : '#0F172A',
+        border:'none', borderRadius: children ? 22 : '50%',
+        padding: children ? '8px 16px' : 0,
+        width: children ? 'auto' : 44, height: 44,
+        fontSize:13, fontWeight:800, cursor:'pointer',
+        boxShadow: active
+          ? '0 4px 18px rgba(59,130,246,0.5)'
+          : '0 2px 14px rgba(0,0,0,0.18)',
+        transition:'all 0.18s',
+        flexShrink:0,
+        ...extraStyle,
+      }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.transform='scale(1.08)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform='' }}
+    >
+      {icon && <span className="material-symbols-outlined" style={{ fontSize:20, fontVariationSettings:"'FILL' 1" }}>{icon}</span>}
+      {children}
+    </button>
+  )
+}
+
+/* ── Main Component ─────────────────────────────────────── */
+export default function TripMap({
+  schedules    = [],
+  tripItems    = [],
+  dates        = [],
+  selectedDate = null,
+  height       = 'clamp(300px,55vh,520px)',
+}) {
+  const mapContainerRef = useRef(null)
+  const mapRef          = useRef(null)    // Leaflet Map instance
+  const markersRef      = useRef(null)    // L.LayerGroup
+  const linesRef        = useRef(null)    // L.LayerGroup
+  const [status,   setStatus]   = useState('idle')
+  const [showAll,  setShowAll]  = useState(false)
+  const [locating, setLocating] = useState(false)
+
+  const allGeoItems = useMemo(() => {
+    const res = []
+    schedules.forEach(s => { if (s.lat && s.lng) res.push({ ...s, _src:'sched' }) })
+    tripItems.forEach(i => { if (i.lat && i.lng) res.push({ ...i, _src:'item'  }) })
+    return res
+  }, [schedules, tripItems])
+
+  const dayGeoItems = useMemo(() => {
+    if (!selectedDate) return allGeoItems
+    return allGeoItems.filter(i => i.date === selectedDate || i.checkIn === selectedDate)
+  }, [allGeoItems, selectedDate])
+
+  /* ── Init map (once, when items are available) ────────── */
+  useEffect(() => {
+    if (allGeoItems.length === 0) { setStatus('no-coords'); return }
+    if (!mapContainerRef.current || mapRef.current) return
+
+    const first = allGeoItems[0]
+    const map = L.map(mapContainerRef.current, {
+      center: [first.lat, first.lng],
+      zoom: 13,
+      zoomControl: false,
+      attributionControl: true,
+    })
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map)
+
+    markersRef.current = L.layerGroup().addTo(map)
+    linesRef.current   = L.layerGroup().addTo(map)
+    mapRef.current     = map
+    setStatus('ready')
+
+    return () => {
+      map.remove()
+      mapRef.current     = null
+      markersRef.current = null
+      linesRef.current   = null
+    }
+  }, [allGeoItems.length])
+
+  /* ── Update markers & polylines ────────────────────────── */
+  useEffect(() => {
+    if (!mapRef.current || !markersRef.current) return
+
+    markersRef.current.clearLayers()
+    linesRef.current.clearLayers()
+
+    const items = showAll ? allGeoItems : dayGeoItems
+    if (!items.length) return
+
+    /* Markers */
+    items.forEach((item, idx) => {
+      const color    = getColor(item)
+      const dateKey  = item.date || item.checkIn || ''
+      const dayIdx   = dates.indexOf(dateKey)
+      const mColor   = showAll
+        ? DAY_COLORS[dayIdx >= 0 ? dayIdx % DAY_COLORS.length : 0]
+        : color
+      const dayNum   = dayIdx >= 0 ? dayIdx + 1 : undefined
+
+      L.marker([item.lat, item.lng], { icon: makeDivIcon(mColor, getEmoji(item), idx + 1) })
+        .bindPopup(makePopupHTML(item, color, dayNum, mColor), {
+          className: 'tmap-popup-wrap',
+          maxWidth: 280,
+          minWidth: 220,
+        })
+        .addTo(markersRef.current)
+    })
+
+    /* Polylines */
+    const addLine = (pts, color) => {
+      if (pts.length < 2) return
+      L.polyline(pts.map(p => [p.lat, p.lng]), {
+        color, weight: 3, opacity: 0.72, dashArray: '9 6',
+      }).addTo(linesRef.current)
+    }
+
+    if (showAll) {
+      const byDay = {}
+      items.forEach(i => {
+        const d = i.date || i.checkIn || '__'
+        ;(byDay[d] = byDay[d] ?? []).push(i)
+      })
+      Object.entries(byDay).forEach(([d, pts]) => {
+        const dIdx = dates.indexOf(d)
+        addLine(pts, DAY_COLORS[dIdx >= 0 ? dIdx % DAY_COLORS.length : 0])
+      })
+    } else {
+      addLine(items, '#3B82F6')
+    }
+
+    /* Fit */
+    if (items.length === 1) {
+      mapRef.current.setView([items[0].lat, items[0].lng], 14)
+    } else {
+      mapRef.current.fitBounds(items.map(i => [i.lat, i.lng]), { padding: [50, 50], maxZoom: 15 })
+    }
+  }, [status, showAll, dayGeoItems, allGeoItems, dates])
+
+  /* ── Actions ─────────────────────────────────────────── */
+  function locate() {
+    if (!navigator.geolocation) return
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      ({ coords: { latitude, longitude } }) => {
+        setLocating(false)
+        mapRef.current?.setView([latitude, longitude], 14)
+      },
+      () => setLocating(false),
+    )
+  }
+
+  function fitAll() {
+    const items = showAll ? allGeoItems : dayGeoItems
+    if (!items.length) return
+    items.length === 1
+      ? mapRef.current?.setView([items[0].lat, items[0].lng], 14)
+      : mapRef.current?.fitBounds(items.map(i => [i.lat, i.lng]), { padding: [50, 50] })
+  }
+
+  function openGoogleRoute() {
+    const items = showAll ? allGeoItems : dayGeoItems
+    if (!items.length) return
+    const pts = items.map(i => `${i.lat},${i.lng}`)
+    const url = pts.length === 1
+      ? `https://www.google.com/maps/search/?api=1&query=${pts[0]}`
+      : `https://www.google.com/maps/dir/${pts.join('/')}`
+    window.open(url, '_blank', 'noopener')
+  }
+
+  /* ── Placeholders ────────────────────────────────────── */
+  if (status === 'no-coords') {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'48px 24px', background:'#F8FAFC', textAlign:'center', gap:14, minHeight:220 }}>
+        <div style={{ width:64, height:64, borderRadius:'50%', background:'#EFF6FF', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span className="material-symbols-outlined" style={{ fontSize:32, color:'#3B82F6', fontVariationSettings:"'FILL' 1" }}>location_off</span>
+        </div>
+        <p style={{ fontSize:17, fontWeight:800, color:'#0F172A' }}>지도에 표시할 위치가 없어요</p>
+        <p style={{ fontSize:13, color:'#64748B', lineHeight:1.7 }}>일정 추가 시 장소를 검색하면<br/>지도에 경로가 표시됩니다</p>
+      </div>
+    )
+  }
+
+  const displayCount = (showAll ? allGeoItems : dayGeoItems).length
+
+  return (
+    <div style={{ position:'relative', width:'100%', height, background:'#E2E8F0' }}>
+
+      {/* Map container */}
+      <div ref={mapContainerRef} style={{ width:'100%', height:'100%' }} />
+
+      {status === 'ready' && (
+        <>
+          {/* ── Top-left controls ── */}
+          <div style={{ position:'absolute', top:12, left:12, zIndex:1000, display:'flex', flexDirection:'column', gap:8, maxWidth:170 }}>
+
+            {/* Today / All toggle */}
+            <MapBtn active={showAll} onClick={() => setShowAll(p => !p)} style={{ borderRadius:22, width:'auto', padding:'8px 16px' }}>
+              <span style={{ fontSize:15 }}>{showAll ? '🗺️' : '📅'}</span>
+              {showAll ? '전체 여행' : '오늘 일정'}
+            </MapBtn>
+
+            {/* Day legend */}
+            {showAll && dates.length > 0 && (
+              <div style={{ background:'rgba(255,255,255,0.97)', backdropFilter:'blur(14px)', borderRadius:14, padding:'8px 12px', boxShadow:'0 2px 16px rgba(0,0,0,0.14)', maxHeight:180, overflowY:'auto' }}>
+                <p style={{ fontSize:10, fontWeight:700, color:'#94A3B8', textTransform:'uppercase', letterSpacing:0.6, marginBottom:6 }}>Day 색상</p>
+                {dates.map((d, i) => (
+                  <div key={d} style={{ display:'flex', alignItems:'center', gap:7, padding:'2px 0' }}>
+                    <div style={{ width:10, height:10, borderRadius:'50%', background:DAY_COLORS[i % DAY_COLORS.length], flexShrink:0 }} />
+                    <span style={{ fontSize:11, color:'#0F172A', fontWeight:700 }}>Day {i+1}</span>
+                    <span style={{ fontSize:10, color:'#94A3B8' }}>{d.slice(5).replace('-','/')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Place count */}
+            {displayCount > 0 && (
+              <div style={{ background:'rgba(255,255,255,0.97)', backdropFilter:'blur(14px)', borderRadius:20, padding:'5px 12px', boxShadow:'0 2px 10px rgba(0,0,0,0.12)', display:'inline-flex', alignItems:'center', gap:5, alignSelf:'flex-start' }}>
+                <span style={{ fontSize:12, fontWeight:700, color:'#0F172A' }}>📍 {displayCount}곳</span>
+              </div>
+            )}
+          </div>
+
+          {/* ── Top-right controls ── */}
+          <div style={{ position:'absolute', top:12, right:12, zIndex:1000, display:'flex', flexDirection:'column', gap:8 }}>
+            <MapBtn icon={locating ? 'progress_activity' : 'my_location'} title="현재 위치" onClick={locate} style={{ color: locating ? '#94A3B8' : '#3B82F6' }} />
+            <MapBtn icon="add" title="확대" onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom()||13)+1)} />
+            <MapBtn icon="remove" title="축소" onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom()||13)-1)} />
+          </div>
+
+          {/* ── Bottom controls ── */}
+          <div style={{ position:'absolute', bottom:14, left:12, right:12, zIndex:1000, display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
+            {/* Google Maps route link */}
+            <button
+              onClick={openGoogleRoute}
+              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.97)', backdropFilter:'blur(14px)', border:'none', borderRadius:22, padding:'8px 14px', fontSize:12, fontWeight:800, color:'#0F172A', cursor:'pointer', boxShadow:'0 2px 14px rgba(0,0,0,0.16)' }}
+            >
+              <span style={{ fontSize:16 }}>🌍</span>구글맵에서 경로 보기
+            </button>
+
+            <MapBtn icon="fit_screen" title="전체 보기" onClick={fitAll} style={{ borderRadius:22, width:'auto', padding:'8px 14px', fontSize:12, gap:5 }}>
+              전체 보기
+            </MapBtn>
+          </div>
+        </>
+      )}
+
+      {/* Leaflet popup & tile override styles */}
+      <style>{`
+        .tmap-popup-wrap .leaflet-popup-content-wrapper {
+          padding:0; border-radius:16px; overflow:hidden;
+          box-shadow:0 8px 36px rgba(0,0,0,0.22); border:none;
+        }
+        .tmap-popup-wrap .leaflet-popup-content { margin:0; }
+        .tmap-popup-wrap .leaflet-popup-tip-container { display:none; }
+        .tmap-popup { font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif; min-width:210px; }
+        .tmap-popup-header { padding:12px 14px 10px; }
+        .tmap-popup-meta { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+        .tmap-day-badge { background:rgba(0,0,0,0.22); color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:20px; }
+        .tmap-popup-title { color:#fff; font-size:15px; font-weight:800; line-height:1.3; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .tmap-popup-time { color:rgba(255,255,255,0.85); font-size:11px; margin-top:3px; }
+        .tmap-popup-body { padding:10px 14px 12px; background:#fff; }
+        .tmap-popup-place { font-size:12px; color:#64748B; margin:0 0 5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .tmap-popup-cost { font-size:15px; font-weight:800; margin:0 0 8px; }
+        .tmap-nav-row { display:flex; gap:7px; }
+        .tmap-nav-btn { flex:1; text-align:center; font-size:12px; font-weight:700; padding:8px 6px; border-radius:10px; text-decoration:none; }
+        .tmap-nav-kakao { background:#FFCD29; color:#3C1E1E; }
+        .tmap-nav-google { background:#4285F4; color:#fff; }
+        .leaflet-control-attribution { font-size:9px !important; }
+      `}</style>
     </div>
   )
 }

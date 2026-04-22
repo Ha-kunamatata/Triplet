@@ -49,11 +49,12 @@ export async function updateChecklist(tripId, items) {
   await updateDoc(doc(db, 'trips', tripId), { checklist: items })
 }
 
-export async function updateTripBudgetData(tripId, { budget, expenses }) {
+export async function updateTripBudgetData(tripId, { budget, expenses, categoryBudgets }) {
   await updateDoc(doc(db, 'trips', tripId), {
-    budget:   budget   ?? 0,
-    expenses: expenses ?? [],
-    updatedAt: serverTimestamp(),
+    budget:          budget          ?? 0,
+    expenses:        expenses        ?? [],
+    categoryBudgets: categoryBudgets ?? {},
+    updatedAt:       serverTimestamp(),
   })
 }
 

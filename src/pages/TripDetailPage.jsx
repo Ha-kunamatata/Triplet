@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { getTrip, getSchedules, addSchedule, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem, updateTripBudgetData } from '../firebase/firestore'
+import { getTrip, getSchedules, addSchedule, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem, updateTripBudgetData, updateTrip } from '../firebase/firestore'
 import { generateDateRange, formatDisplayDate, formatShortDate, getDDay, calcTripStatus } from '../utils/dateUtils'
 import { getItemSortTime } from '../utils/tripItemUtils'
 import DayTab from '../components/schedule/DayTab'
@@ -48,6 +48,12 @@ export default function TripDetailPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [showKmlImport, setShowKmlImport] = useState(false)
+  const [dayOrders, setDayOrders] = useState({})
+  const [activeItemId, setActiveItemId] = useState(null)
+
+  const dayCombinedRef = useRef([])
+  const dayOrdersRef = useRef({})
+  const selectedDateRef = useRef(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -69,23 +75,29 @@ export default function TripDetailPage() {
           setBudget(t.budget ?? 0)
           setExpenses(t.expenses ?? [])
           setCategoryBudgets(t.categoryBudgets ?? {})
+          setDayOrders(t.dayOrders ?? {})
         }
       })
       .finally(() => setLoading(false))
   }, [tripId])
 
-  const handleDragEnd = useCallback(async ({ active, over }) => {
+  const handleCombinedDragEnd = useCallback(({ active, over }) => {
     setActiveId(null)
     if (!over || active.id === over.id) return
-    setSchedules(prev => {
-      const date = prev.find(s => s.id === active.id)?.date
-      const dayItems = prev.filter(s => s.date === date)
-      const rest = prev.filter(s => s.date !== date)
-      const oldIdx = dayItems.findIndex(s => s.id === active.id)
-      const newIdx = dayItems.findIndex(s => s.id === over.id)
-      return [...rest, ...arrayMove(dayItems, oldIdx, newIdx)]
+    const current = dayCombinedRef.current
+    const oldIdx = current.findIndex(x => x.id === active.id)
+    const newIdx = current.findIndex(x => x.id === over.id)
+    if (oldIdx === -1 || newIdx === -1) return
+    const newList = arrayMove([...current], oldIdx, newIdx)
+    const newIds = newList.map(x => x.id)
+    const date = selectedDateRef.current
+    setDayOrders(prev => {
+      const updated = { ...prev, [date]: newIds }
+      dayOrdersRef.current = updated
+      updateTrip(tripId, { dayOrders: updated })
+      return updated
     })
-  }, [])
+  }, [tripId])
 
   const toggleCheck = useCallback(async (id) => {
     const next = checklist.map(item => item.id === id ? { ...item, checked: !item.checked } : item)
@@ -154,6 +166,23 @@ export default function TripDetailPage() {
   const status = calcTripStatus(trip.startDate, trip.endDate)
   const statusInfo = TRIP_STATUS[status]
   const [bg1, bg2] = getCoverGradient(trip.emoji)
+
+  // 통합 정렬 리스트 (schedules + tripItems 합산, dayOrders 순서 적용)
+  const dayCombinedRaw = [
+    ...dayTripItems.map(i => ({ ...i, _type: 'item' })),
+    ...daySchedules.map(s => ({ ...s, _type: 'sched' })),
+  ]
+  const savedOrder = dayOrders[selectedDate] ?? []
+  const dayCombined = savedOrder.length > 0
+    ? [
+        ...savedOrder.map(id => dayCombinedRaw.find(x => x.id === id)).filter(Boolean),
+        ...dayCombinedRaw.filter(x => !savedOrder.includes(x.id)),
+      ]
+    : dayCombinedRaw
+  dayCombinedRef.current = dayCombined
+  selectedDateRef.current = selectedDate
+  dayOrdersRef.current = dayOrders
+  const miniMapItems = dayCombined.filter(x => x.lat && x.lng)
 
   async function handleDeleteSchedule(id) {
     await deleteSchedule(id)
@@ -316,7 +345,7 @@ export default function TripDetailPage() {
                   >
                     <span style={{ fontSize: 14 }}>🗺️</span>내 지도
                   </button>
-                  {daySchedules.length > 0 && (
+                  {dayCombined.length > 1 && (
                     <p style={{ fontSize: 11, color: 'var(--c-text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
                       <span className="material-symbols-outlined" style={{ fontSize: 12 }}>drag_indicator</span>순서 변경
                     </p>
@@ -326,48 +355,41 @@ export default function TripDetailPage() {
             )
           })()}
 
-          {/* 새 tripItems (항공편, 숙소, 이동 등) */}
-          {dayTripItems.length > 0 && (
-            <div style={{ padding: '0 14px 4px' }}>
-              {dayTripItems.map(item => (
-                <TripItemCard
-                  key={item.id}
-                  item={item}
-                  onEdit={() => navigate(`/trips/${tripId}/item/${item.id}/edit`)}
-                  onDelete={async () => {
-                    await deleteTripItem(item.id)
-                    setTripItems(prev => prev.filter(i => i.id !== item.id))
-                    setToast({ message: '삭제되었습니다.' })
-                  }}
-                />
-              ))}
-            </div>
-          )}
-
+          {/* ── 통합 드래그 타임라인 ── */}
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={({ active }) => setActiveId(active.id)}
-            onDragEnd={handleDragEnd}
+            onDragEnd={handleCombinedDragEnd}
           >
-            <SortableContext items={daySchedules.map(s => s.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={dayCombined.map(x => x.id)} strategy={verticalListSortingStrategy}>
               <div style={{ padding: '4px 14px 16px' }}>
-                {daySchedules.length === 0 && dayTripItems.length === 0 ? (
+                {dayCombined.length === 0 ? (
                   <EmptyState icon="event_note" title="이 날의 일정이 없어요" description="+ 버튼으로 일정을 추가해보세요" />
                 ) : (
-                  daySchedules.map((s, idx) => {
-                    const next = daySchedules[idx + 1]
-                    const isLast = idx === daySchedules.length - 1
+                  dayCombined.map((item, idx) => {
+                    const next = dayCombined[idx + 1]
+                    const isLast = idx === dayCombined.length - 1
                     return (
-                      <div key={s.id}>
-                        <SortableTimelineItem
-                          schedule={s} isLast={isLast && !next}
-                          onEdit={() => navigate(`/trips/${tripId}/schedule/${s.id}/edit`)}
-                          onDelete={() => handleDeleteSchedule(s.id)}
-                          isDragging={activeId === s.id}
+                      <div key={item.id}>
+                        <SortableCombinedItem
+                          item={item}
+                          number={idx + 1}
+                          isLast={isLast}
+                          isDragging={activeId === item.id}
+                          activeItemId={activeItemId}
+                          onSetActive={setActiveItemId}
+                          onEdit={() => item._type === 'item'
+                            ? navigate(`/trips/${tripId}/item/${item.id}/edit`)
+                            : navigate(`/trips/${tripId}/schedule/${item.id}/edit`)
+                          }
+                          onDelete={item._type === 'item'
+                            ? async () => { await deleteTripItem(item.id); setTripItems(prev => prev.filter(i => i.id !== item.id)); setToast({ message: '삭제되었습니다.' }) }
+                            : () => handleDeleteSchedule(item.id)
+                          }
                         />
-                        {!isLast && next && s.lat && s.lng && next.lat && next.lng && (
-                          <DistanceConnector from={s} to={next} />
+                        {!isLast && next && item.lat && item.lng && next.lat && next.lng && (
+                          <DistanceConnector from={item} to={next} />
                         )}
                       </div>
                     )
@@ -377,11 +399,17 @@ export default function TripDetailPage() {
             </SortableContext>
             <DragOverlay>
               {activeId ? (() => {
-                const s = daySchedules.find(x => x.id === activeId)
-                return s ? <TimelineItem schedule={s} isLast isDragging /> : null
+                const item = dayCombined.find(x => x.id === activeId)
+                const num = dayCombined.findIndex(x => x.id === activeId) + 1
+                return item ? <CombinedTimelineItem item={item} number={num} isLast /> : null
               })() : null}
             </DragOverlay>
           </DndContext>
+
+          {/* ── 미니맵 오버레이 ── */}
+          {miniMapItems.length >= 2 && (
+            <MiniMapOverlay items={miniMapItems} activeId={activeItemId} />
+          )}
         </>
       ) : viewMode === 'budget' ? (
         <BudgetView
@@ -672,6 +700,229 @@ function Chip({ icon, text, color }) {
   )
 }
 
+/* ── 통합 타임라인 컴포넌트 ── */
+
+function getCombinedMeta(item) {
+  if (item._type === 'item') return ITEM_TYPE_META[item.type] ?? ITEM_TYPE_META.PLACE
+  return SCHEDULE_CATEGORIES.find(c => c.key === item.category) ?? SCHEDULE_CATEGORIES.at(-1)
+}
+function getCombinedTitle(item) {
+  if (item._type === 'sched') return item.title || '일정'
+  return item.title || item.name || item.flightNumber || item.fromName || '일정'
+}
+function getCombinedTime(item) {
+  if (item._type === 'sched') return item.startTime || ''
+  return item.startTime || item.departureTime?.slice(11, 16) || item.checkInTime || ''
+}
+function getCombinedSubtitle(item) {
+  if (item._type === 'sched') return { icon: 'location_on', text: item.place || item.placeAddress || '' }
+  switch (item.type) {
+    case 'FLIGHT':    return { icon: 'flight_takeoff', text: `${item.departureAirport||'?'} → ${item.arrivalAirport||'?'}${item.flightNumber ? ' · '+item.flightNumber : ''}` }
+    case 'STAY':      return { icon: 'hotel',          text: item.address || (item.checkIn && item.checkOut ? `${item.checkIn} → ${item.checkOut}` : '') }
+    case 'TRANSPORT': return { icon: 'directions',     text: item.fromName && item.toName ? `${item.fromName} → ${item.toName}` : '' }
+    case 'PLACE':     return { icon: 'location_on',    text: item.place || item.address || '' }
+    default:          return { icon: null, text: '' }
+  }
+}
+function renderCombinedDetail(item, color) {
+  const memo = item.memo || item.note || ''
+  const cost = Number(item.cost) || 0
+  if (item._type === 'item' && item.type === 'FLIGHT') {
+    const dep = item.departureTime?.slice(11, 16)
+    const arr = item.arrivalTime?.slice(11, 16)
+    if (dep && arr) return (
+      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--c-text-1)' }}>{dep}</span>
+        <div style={{ flex: 1, height: 2, background: `linear-gradient(90deg, ${color}60, ${color})`, borderRadius: 1 }} />
+        <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--c-text-1)' }}>{arr}</span>
+        {cost > 0 && <span style={{ fontSize: 12, fontWeight: 700, color, background: color+'15', padding: '2px 8px', borderRadius: 12 }}>{cost.toLocaleString('ko-KR')}원</span>}
+      </div>
+    )
+  }
+  return (
+    <>
+      {memo && (
+        <div style={{ marginTop: 8, background: `${color}0a`, borderRadius: 8, padding: '6px 10px', borderLeft: `3px solid ${color}50` }}>
+          <p style={{ fontSize: 12, color: 'var(--c-text-2)', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{memo}</p>
+        </div>
+      )}
+      {cost > 0 && (
+        <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+          <span style={{ fontSize: 12, fontWeight: 800, color, background: color+'15', padding: '3px 10px', borderRadius: 18 }}>
+            {cost.toLocaleString('ko-KR')}원
+          </span>
+        </div>
+      )}
+    </>
+  )
+}
+
+function CombinedTimelineItem({ item, number, isLast, onEdit, onDelete, dragHandleProps, isActive }) {
+  const meta = getCombinedMeta(item)
+  const color = meta.color
+  const icon = meta.icon
+  const title = getCombinedTitle(item)
+  const time = getCombinedTime(item)
+  const { icon: subIcon, text: subText } = getCombinedSubtitle(item)
+  return (
+    <div style={{ display: 'flex' }}>
+      {/* 시간 컬럼 */}
+      <div style={{ width: 52, flexShrink: 0, textAlign: 'right', paddingRight: 10, paddingTop: 15 }}>
+        {time
+          ? <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--c-text-1)', lineHeight: 1 }}>{time}</p>
+          : <span style={{ fontSize: 11, color: 'var(--c-text-3)', display: 'block', paddingTop: 1 }}>—</span>}
+      </div>
+      {/* 번호 도트 + 세로선 */}
+      <div style={{ width: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{
+          width: 24, height: 24, borderRadius: '50%', background: color,
+          marginTop: 11, flexShrink: 0, zIndex: 1,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 10, fontWeight: 900,
+          boxShadow: isActive
+            ? `0 0 0 3px white, 0 0 0 6px ${color}90, 0 0 16px ${color}60`
+            : `0 0 0 3px ${color}30`,
+          transition: 'box-shadow 0.3s ease',
+        }}>
+          {number > 99 ? '·' : number}
+        </div>
+        {!isLast && <div style={{ flex: 1, width: 2, minHeight: 20, marginTop: 3, background: `linear-gradient(to bottom, ${color}70, var(--c-border))` }} />}
+      </div>
+      {/* 카드 */}
+      <div style={{ flex: 1, paddingLeft: 10, paddingBottom: isLast ? 8 : 18 }}>
+        <div style={{
+          background: 'var(--c-surface)', borderRadius: 16,
+          boxShadow: isActive ? `0 4px 22px ${color}35, 0 2px 8px rgba(0,0,0,0.05)` : '0 2px 12px rgba(15,23,42,0.07)',
+          border: `1.5px solid ${isActive ? color+'70' : color+'18'}`,
+          overflow: 'hidden', transition: 'all 0.3s ease',
+        }}>
+          <div style={{ height: 3, background: `linear-gradient(90deg, ${color}, ${color}55)` }} />
+          <div style={{ padding: '11px 12px 12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                {dragHandleProps && (
+                  <span {...dragHandleProps} className="material-symbols-outlined" style={{ fontSize: 17, color: 'var(--c-border2)', cursor: 'grab', flexShrink: 0, touchAction: 'none' }}>drag_indicator</span>
+                )}
+                <div style={{ width: 30, height: 30, borderRadius: 9, flexShrink: 0, background: `${color}18`, border: `1.5px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 15, color, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: -0.3 }}>{title}</p>
+                  {subText && (
+                    <p style={{ fontSize: 11, color: 'var(--c-text-3)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 3 }}>
+                      {subIcon && <span className="material-symbols-outlined" style={{ fontSize: 11 }}>{subIcon}</span>}
+                      {subText}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                {[['edit', false], ['delete', true]].map(([ico, danger]) => (
+                  <button key={ico} onClick={ico === 'edit' ? onEdit : onDelete}
+                    style={{ width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', transition: 'all var(--t-fast)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = danger ? '#FEF2F2' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--c-text-3)' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{ico}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {renderCombinedDetail(item, color)}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SortableCombinedItem({ item, number, isLast, isDragging, activeItemId, onSetActive, onEdit, onDelete }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id })
+  const cardRef = useRef(null)
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.4) onSetActive(item.id)
+    }, { threshold: 0.4, rootMargin: '-60px 0px -60px 0px' })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [item.id, onSetActive])
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
+      <div ref={cardRef}>
+        <CombinedTimelineItem
+          item={item} number={number} isLast={isLast}
+          onEdit={onEdit} onDelete={onDelete}
+          dragHandleProps={{ ...attributes, ...listeners }}
+          isActive={activeItemId === item.id}
+        />
+      </div>
+    </div>
+  )
+}
+
+function MiniMapOverlay({ items, activeId }) {
+  const geoItems = items.filter(x => x.lat && x.lng)
+  if (geoItems.length < 2) return null
+  const lats = geoItems.map(x => x.lat)
+  const lngs = geoItems.map(x => x.lng)
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats)
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
+  const latR = maxLat - minLat || 0.005
+  const lngR = maxLng - minLng || 0.005
+  const W = 136, H = 136, PAD = 14
+  const toXY = (lat, lng) => ({
+    x: PAD + ((lng - minLng) / lngR) * (W - PAD * 2),
+    y: H - PAD - ((lat - minLat) / latR) * (H - PAD * 2),
+  })
+  const activeItem = geoItems.find(x => x.id === activeId)
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 'calc(var(--bottom-nav-h) + var(--safe-bottom) + 76px)',
+      right: 14, width: W,
+      background: 'rgba(255,255,255,0.96)',
+      borderRadius: 14,
+      boxShadow: '0 4px 18px rgba(0,0,0,0.18)',
+      border: '1px solid var(--c-border)',
+      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+      zIndex: 45, overflow: 'hidden',
+    }}>
+      <p style={{ fontSize: 9, fontWeight: 700, color: 'var(--c-text-3)', padding: '4px 0', textAlign: 'center', letterSpacing: 0.6, textTransform: 'uppercase', borderBottom: '1px solid var(--c-border)' }}>
+        동선 미니맵
+      </p>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+        {/* 경로선 */}
+        <polyline
+          points={geoItems.map(x => { const p = toXY(x.lat, x.lng); return `${p.x},${p.y}` }).join(' ')}
+          fill="none" stroke="#93C5FD" strokeWidth="1.8" strokeDasharray="5 3"
+        />
+        {/* 마커 */}
+        {geoItems.map((item, idx) => {
+          const { x, y } = toXY(item.lat, item.lng)
+          const isActive = item.id === activeId
+          const color = getCombinedMeta(item).color
+          const allIdx = items.findIndex(z => z.id === item.id)
+          return (
+            <g key={item.id}>
+              {isActive && <circle cx={x} cy={y} r={11} fill={color} fillOpacity={0.2} />}
+              <circle cx={x} cy={y} r={isActive ? 7 : 5} fill={color} stroke="white" strokeWidth={isActive ? 2 : 1.5} />
+              <text x={x} y={y + 3.5} textAnchor="middle" fontSize="6.5" fontWeight="900" fill="white" fontFamily="system-ui">{allIdx + 1}</text>
+            </g>
+          )
+        })}
+      </svg>
+      {activeItem && (
+        <div style={{ borderTop: '1px solid var(--c-border)', padding: '4px 8px', background: getCombinedMeta(activeItem).color + '10' }}>
+          <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {getCombinedTitle(activeItem)}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Sub-components ── */
 
 function SortableTimelineItem({ schedule, isLast, onEdit, onDelete, isDragging }) {
@@ -702,6 +953,7 @@ function haversine(lat1, lng1, lat2, lng2) {
 
 function DistanceConnector({ from, to }) {
   const dist    = haversine(from.lat, from.lng, to.lat, to.lng)
+  if (dist > 50000) return null  // 50km 초과 시 미표시 (항공편 등)
   const walkMin = Math.max(1, Math.round(dist / 80))
   const distLabel = dist >= 1000 ? `${(dist/1000).toFixed(1)}km` : `${Math.round(dist)}m`
   const timeLabel = walkMin >= 60

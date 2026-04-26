@@ -34,18 +34,18 @@ function makeDivIcon(color, emoji, num) {
   const label = num > 9 ? '…' : String(num)
   return L.divIcon({
     className: '',
-    iconSize:  [38, 54],
-    iconAnchor:[19, 54],
-    popupAnchor:[0, -56],
+    iconSize:  [44, 62],
+    iconAnchor:[22, 62],
+    popupAnchor:[0, -64],
     html: `
-      <div style="width:38px;height:54px;position:relative;filter:drop-shadow(0 3px 5px rgba(0,0,0,0.32))">
-        <svg xmlns="http://www.w3.org/2000/svg" width="38" height="54" viewBox="0 0 38 54">
-          <path d="M19 2C11 2 4.5 8.5 4.5 16.5C4.5 28.5 19 52 19 52S33.5 28.5 33.5 16.5C33.5 8.5 27 2 19 2Z" fill="${color}"/>
-          <circle cx="19" cy="16.5" r="12" fill="white"/>
-          <circle cx="31" cy="7" r="8.5" fill="#0F172A" stroke="white" stroke-width="1.5"/>
-          <text x="31" y="10.5" text-anchor="middle" fill="white" font-size="8.5" font-weight="900" font-family="system-ui,-apple-system,sans-serif">${esc(label)}</text>
+      <div style="width:44px;height:62px;position:relative;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.38))">
+        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="62" viewBox="0 0 44 62">
+          <path d="M22 2C13 2 5.5 9.5 5.5 18.5C5.5 32.5 22 60 22 60S38.5 32.5 38.5 18.5C38.5 9.5 31 2 22 2Z" fill="${color}"/>
+          <circle cx="22" cy="18.5" r="13.5" fill="white"/>
+          <circle cx="36" cy="8" r="9.5" fill="#0F172A" stroke="white" stroke-width="2"/>
+          <text x="36" y="12" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="system-ui,-apple-system,sans-serif">${esc(label)}</text>
         </svg>
-        <div style="position:absolute;top:4px;left:5.5px;width:25px;height:25px;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;pointer-events:none;user-select:none">${emoji}</div>
+        <div style="position:absolute;top:4px;left:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;pointer-events:none;user-select:none">${emoji}</div>
       </div>`,
   })
 }
@@ -200,11 +200,21 @@ export default function TripMap({
     })
 
     /* Polylines */
-    const addLine = (pts, color) => {
+    const addLine = (pts, color, dashed = false) => {
       if (pts.length < 2) return
-      L.polyline(pts.map(p => [p.lat, p.lng]), {
-        color, weight: 3, opacity: 0.72, dashArray: '9 6',
-      }).addTo(linesRef.current)
+      if (dashed) {
+        L.polyline(pts.map(p => [p.lat, p.lng]), {
+          color, weight: 3, opacity: 0.6, dashArray: '8 6',
+        }).addTo(linesRef.current)
+      } else {
+        // 흰색 외곽선 + 색상 선으로 선명도 향상
+        L.polyline(pts.map(p => [p.lat, p.lng]), {
+          color: '#fff', weight: 7, opacity: 0.75,
+        }).addTo(linesRef.current)
+        L.polyline(pts.map(p => [p.lat, p.lng]), {
+          color, weight: 4, opacity: 0.9,
+        }).addTo(linesRef.current)
+      }
     }
 
     if (showAll) {
@@ -215,7 +225,7 @@ export default function TripMap({
       })
       Object.entries(byDay).forEach(([d, pts]) => {
         const dIdx = dates.indexOf(d)
-        addLine(pts, DAY_COLORS[dIdx >= 0 ? dIdx % DAY_COLORS.length : 0])
+        addLine(pts, DAY_COLORS[dIdx >= 0 ? dIdx % DAY_COLORS.length : 0], true)
       })
     } else {
       addLine(items, '#3B82F6')

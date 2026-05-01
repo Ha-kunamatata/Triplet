@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function ownsTrip(tripId) {
+      return get(/databases/$(database)/documents/trips/$(tripId)).data.userId == request.auth.uid;
+    }
+
+    // ── 여행 ──────────────────────────────────────────────────
+    match /trips/{tripId} {
+      allow read, update, delete: if isSignedIn()
+        && request.auth.uid == resource.data.userId;
+      allow create: if isSignedIn()
+        && request.auth.uid == request.resource.data.userId;
+    }
+
+    // ── 일정 ──────────────────────────────────────────────────
+    match /schedules/{id} {
+      allow get, list, update, delete: if isSignedIn()
+        && ownsTrip(resource.data.tripId);
+      allow create: if isSignedIn()
+        && ownsTrip(request.resource.data.tripId);
+    }
+
+    // ── 여행 항목 (항공편·숙소·이동 등) ──────────────────────
+    match /tripItems/{id} {
+      allow get, list, update, delete: if isSignedIn()
+        && ownsTrip(resource.data.tripId);
+      allow create: if isSignedIn()
+        && ownsTrip(request.resource.data.tripId);
+    }
+
+    // ── 여행 일기 ─────────────────────────────────────────────
+    match /diary/{id} {
+      allow get, list, update, delete: if isSignedIn()
+        && ownsTrip(resource.data.tripId);
+      allow create: if isSignedIn()
+        && ownsTrip(request.resource.data.tripId);
+    }
+
+    // ── 저장된 장소 ───────────────────────────────────────────
+    match /savedPlaces/{id} {
+      allow read, update, delete: if isSignedIn()
+        && request.auth.uid == resource.data.userId;
+      allow create: if isSignedIn()
+        && request.auth.uid == request.resource.data.userId;
+    }
+
+    // ── 사용자 프로필 ─────────────────────────────────────────
+    match /users/{userId} {
+      allow read, write: if isSignedIn()
+        && request.auth.uid == userId;
+    }
+  }
+}

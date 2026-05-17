@@ -1,0 +1,26 @@
+{
+  "name": "Triplet - 여행 플래너",
+  "short_name": "Triplet",
+  "description": "함께 만드는 여행 일정",
+  "start_url": "/Triplet/",
+  "scope": "/Triplet/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F8FAFC",
+  "theme_color": "#4A90E2",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

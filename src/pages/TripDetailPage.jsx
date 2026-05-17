@@ -469,9 +469,10 @@ export default function TripDetailPage() {
               <div style={{ display: 'flex', gap: 8, padding: '0 16px 14px', overflowX: 'auto', scrollbarWidth: 'none' }}>
                 {[...dayTripItems, ...daySchedules].map(item => {
                   const isItem = !!item.type
-                  const meta = isItem
+                  // PLACE 아이템과 일정은 카테고리 기준으로 통일
+                  const meta = (isItem && item.type !== 'PLACE')
                     ? ITEM_TYPE_META[item.type]
-                    : SCHEDULE_CATEGORIES.find(c => c.key === item.category) ?? SCHEDULE_CATEGORIES.at(-1)
+                    : SCHEDULE_CATEGORIES.find(c => c.key === (item.category || 'attraction')) ?? SCHEDULE_CATEGORIES.at(-1)
                   const color = meta?.color ?? '#94A3B8'
                   const icon  = meta?.icon  ?? 'place'
                   const title = item.title || item.name || item.flightNumber || item.fromName || '일정'
@@ -717,8 +718,14 @@ function Chip({ icon, text, color }) {
 /* ── 통합 타임라인 컴포넌트 ── */
 
 function getCombinedMeta(item) {
-  if (item._type === 'item') return ITEM_TYPE_META[item.type] ?? ITEM_TYPE_META.PLACE
-  return SCHEDULE_CATEGORIES.find(c => c.key === item.category) ?? SCHEDULE_CATEGORIES.at(-1)
+  // 항공편/숙소/이동/메모: 고유 타입 메타 사용 (시각적으로 구분 필요)
+  if (item._type === 'item' && item.type && item.type !== 'PLACE') {
+    return ITEM_TYPE_META[item.type] ?? ITEM_TYPE_META.PLACE
+  }
+  // PLACE tripItem 과 일정(schedule)은 모두 카테고리 기준으로 통일
+  // KML 가져오기·직접 입력 구분 없이 같은 외형
+  const cat = item.category || 'attraction'
+  return SCHEDULE_CATEGORIES.find(c => c.key === cat) ?? SCHEDULE_CATEGORIES.at(-1)
 }
 function getCombinedTitle(item) {
   if (item._type === 'sched') return item.title || '일정'

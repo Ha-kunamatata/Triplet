@@ -6,45 +6,41 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // trip 소유자 확인
     function ownsTrip(tripId) {
       return get(/databases/$(database)/documents/trips/$(tripId)).data.userId == request.auth.uid;
     }
 
-    // trip 접근 가능 여부 (소유자 OR shareEnabled OR 공유 멤버)
     function canAccessTrip(tripId) {
       let t = get(/databases/$(database)/documents/trips/$(tripId));
-      return t.data.userId == request.auth.uid ||
-        t.data.shareEnabled == true ||
-        (t.data.sharedWith is list && request.auth.uid in t.data.sharedWith);
+      return t.data.userId == request.auth.uid
+        || t.data.shareEnabled == true
+        || (t.data.sharedWith is list && request.auth.uid in t.data.sharedWith);
     }
 
     // ── 여행 ──────────────────────────────────────────────────
     match /trips/{tripId} {
-      // 소유자, shareEnabled(공개 링크), 또는 공유 멤버 읽기 허용
+
+      // shareEnabled 이면 로그인한 누구나 읽기 가능 (초대 링크 조회 포함)
       allow read: if isSignedIn() && (
-        request.auth.uid == resource.data.userId ||
-        resource.data.shareEnabled == true ||
-        (resource.data.sharedWith is list && request.auth.uid in resource.data.sharedWith)
+        request.auth.uid == resource.data.userId
+        || resource.data.shareEnabled == true
+        || (resource.data.sharedWith is list && request.auth.uid in resource.data.sharedWith)
       );
 
       allow create: if isSignedIn()
         && request.auth.uid == request.resource.data.userId;
 
       // 소유자: 모든 필드 수정 가능
-      // shareEnabled인 경우: sharedWith 배열만 수정 가능 (초대 링크로 참가)
-      // 공유 멤버: sharedWith 배열만 수정 가능
+      // shareEnabled 상태면 sharedWith 필드만 수정 가능 (자기 자신 추가/제거)
+      // 기존 공유 멤버: sharedWith 필드만 수정 가능
       allow update: if isSignedIn() && (
-        request.auth.uid == resource.data.userId ||
-        (
-          resource.data.shareEnabled == true &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sharedWith'])
-        ) ||
-        (
-          resource.data.sharedWith is list &&
-          request.auth.uid in resource.data.sharedWith &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sharedWith'])
-        )
+        request.auth.uid == resource.data.userId
+        || (resource.data.shareEnabled == true
+            && request.resource.data.keys().hasAll(resource.data.keys())
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sharedWith']))
+        || (resource.data.sharedWith is list
+            && request.auth.uid in resource.data.sharedWith
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sharedWith']))
       );
 
       allow delete: if isSignedIn()
@@ -58,7 +54,7 @@ service cloud.firestore {
       allow create:            if isSignedIn() && canAccessTrip(request.resource.data.tripId);
     }
 
-    // ── 여행 항목 (항공편·숙소·이동 등) ──────────────────────
+    // ── 여행 항목 ─────────────────────────────────────────────
     match /tripItems/{id} {
       allow get, list, update: if isSignedIn() && canAccessTrip(resource.data.tripId);
       allow delete:            if isSignedIn() && ownsTrip(resource.data.tripId);

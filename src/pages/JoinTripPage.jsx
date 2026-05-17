@@ -7,30 +7,47 @@ export default function JoinTripPage() {
   const { shareCode } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [status, setStatus] = useState('loading') // loading | joining | notfound | error
+  const [status, setStatus] = useState('loading')
   const [errorDetail, setErrorDetail] = useState('')
 
   useEffect(() => {
     if (!user || !shareCode) return
 
-    getTripByShareCode(shareCode.toUpperCase())
-      .then(async trip => {
-        if (!trip) { setStatus('notfound'); return }
-
-        if (trip.userId === user.uid || trip.sharedWith?.includes(user.uid)) {
-          navigate(`/trips/${trip.id}`, { replace: true })
-          return
-        }
-
-        setStatus('joining')
-        await joinTrip(trip.id, user.uid)
-        navigate(`/trips/${trip.id}`, { replace: true })
-      })
-      .catch(err => {
-        console.error('[JoinTrip] error:', err)
-        setErrorDetail(err?.code ?? err?.message ?? String(err))
+    async function run() {
+      // Step 1: 공유 코드로 여행 조회
+      let trip
+      try {
+        trip = await getTripByShareCode(shareCode.toUpperCase())
+      } catch (err) {
+        console.error('[JoinTrip] READ error:', err)
+        setErrorDetail(`READ: ${err?.code ?? err?.message}`)
         setStatus('error')
-      })
+        return
+      }
+
+      if (!trip) { setStatus('notfound'); return }
+
+      // 이미 오너이거나 멤버이면 바로 이동
+      if (trip.userId === user.uid || trip.sharedWith?.includes(user.uid)) {
+        navigate(`/trips/${trip.id}`, { replace: true })
+        return
+      }
+
+      // Step 2: 여행에 참여
+      setStatus('joining')
+      try {
+        await joinTrip(trip.id, user.uid)
+      } catch (err) {
+        console.error('[JoinTrip] WRITE error:', err)
+        setErrorDetail(`JOIN: ${err?.code ?? err?.message}`)
+        setStatus('error')
+        return
+      }
+
+      navigate(`/trips/${trip.id}`, { replace: true })
+    }
+
+    run()
   }, [user, shareCode, navigate])
 
   const content = {

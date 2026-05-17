@@ -4,6 +4,7 @@ import {
   addDoc,
   getDoc,
   getDocs,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -205,19 +206,29 @@ function genShareCode() {
 
 export async function enableSharing(tripId) {
   const code = genShareCode()
+  // shareCodes/{code} 매핑 문서 (단일 문서 조회 가능 → 규칙 평가가 실제 데이터로 이뤄짐)
+  await setDoc(doc(db, 'shareCodes', code), { tripId, createdAt: serverTimestamp() })
   await updateDoc(doc(db, 'trips', tripId), { shareCode: code, shareEnabled: true })
   return code
 }
 
 export async function disableSharing(tripId) {
+  const tripSnap = await getDoc(doc(db, 'trips', tripId))
+  const oldCode = tripSnap.exists() ? tripSnap.data().shareCode : null
   await updateDoc(doc(db, 'trips', tripId), { shareEnabled: false })
+  if (oldCode) {
+    try { await deleteDoc(doc(db, 'shareCodes', oldCode)) } catch {}
+  }
 }
 
 export async function getTripByShareCode(shareCode) {
-  const q = query(collection(db, 'trips'), where('shareCode', '==', shareCode))
-  const snap = await getDocs(q)
-  if (snap.empty) return null
-  const trip = { id: snap.docs[0].id, ...snap.docs[0].data() }
+  const codeSnap = await getDoc(doc(db, 'shareCodes', shareCode))
+  if (!codeSnap.exists()) return null
+  const { tripId } = codeSnap.data()
+  if (!tripId) return null
+  const tripSnap = await getDoc(doc(db, 'trips', tripId))
+  if (!tripSnap.exists()) return null
+  const trip = { id: tripSnap.id, ...tripSnap.data() }
   return trip.shareEnabled ? trip : null
 }
 

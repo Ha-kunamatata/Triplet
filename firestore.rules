@@ -81,5 +81,16 @@ service cloud.firestore {
       allow read, write: if isSignedIn()
         && request.auth.uid == userId;
     }
+
+    // ── 공유 코드 매핑 (shareCode → tripId) ───────────────────
+    // 로그인한 누구나 읽기 가능 (초대 링크 검증용, 단일 문서 조회)
+    // 생성/삭제는 해당 trip 소유자만
+    match /shareCodes/{code} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && get(/databases/$(database)/documents/trips/$(request.resource.data.tripId)).data.userId == request.auth.uid;
+      allow delete: if isSignedIn()
+        && get(/databases/$(database)/documents/trips/$(resource.data.tripId)).data.userId == request.auth.uid;
+    }
   }
 }

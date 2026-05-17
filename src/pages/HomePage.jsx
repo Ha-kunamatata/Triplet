@@ -25,12 +25,13 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!user) return
-    Promise.all([
+    Promise.allSettled([
       getTrips(user.uid),
       getSharedTrips(user.uid),
-    ]).then(([own, shared]) => {
-      setTrips(own)
-      setSharedTrips(shared)
+    ]).then(([ownResult, sharedResult]) => {
+      if (ownResult.status === 'fulfilled') setTrips(ownResult.value)
+      if (sharedResult.status === 'fulfilled') setSharedTrips(sharedResult.value)
+      else console.error('[HomePage] getSharedTrips failed:', sharedResult.reason)
     }).finally(() => setLoading(false))
   }, [user])
 

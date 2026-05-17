@@ -11,33 +11,38 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/trips/$(tripId)).data.userId == request.auth.uid;
     }
 
-    // trip 접근 가능 여부 (소유자 OR 공유 멤버)
+    // trip 접근 가능 여부 (소유자 OR shareEnabled OR 공유 멤버)
     function canAccessTrip(tripId) {
       let t = get(/databases/$(database)/documents/trips/$(tripId));
       return t.data.userId == request.auth.uid ||
-        (t.data.shareEnabled == true && request.auth.uid in t.data.sharedWith);
+        t.data.shareEnabled == true ||
+        (t.data.sharedWith is list && request.auth.uid in t.data.sharedWith);
     }
 
     // ── 여행 ──────────────────────────────────────────────────
     match /trips/{tripId} {
-      // 소유자 OR 공유 멤버 읽기 허용
-      // shareEnabled인 경우 인증된 누구나 read 허용 (초대 링크로 접근 시 필요)
+      // 소유자, shareEnabled(공개 링크), 또는 공유 멤버 읽기 허용
       allow read: if isSignedIn() && (
         request.auth.uid == resource.data.userId ||
-        request.auth.uid in resource.data.sharedWith ||
-        resource.data.shareEnabled == true
+        resource.data.shareEnabled == true ||
+        (resource.data.sharedWith is list && request.auth.uid in resource.data.sharedWith)
       );
 
       allow create: if isSignedIn()
         && request.auth.uid == request.resource.data.userId;
 
       // 소유자: 모든 필드 수정 가능
-      // 공유 멤버: sharedWith 배열(자기 자신 추가)만 수정 가능
+      // shareEnabled인 경우: sharedWith 배열만 수정 가능 (초대 링크로 참가)
+      // 공유 멤버: sharedWith 배열만 수정 가능
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.userId ||
-        request.auth.uid in resource.data.sharedWith ||
         (
           resource.data.shareEnabled == true &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sharedWith'])
+        ) ||
+        (
+          resource.data.sharedWith is list &&
+          request.auth.uid in resource.data.sharedWith &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sharedWith'])
         )
       );

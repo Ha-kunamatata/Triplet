@@ -214,14 +214,11 @@ export async function disableSharing(tripId) {
 }
 
 export async function getTripByShareCode(shareCode) {
-  const q = query(
-    collection(db, 'trips'),
-    where('shareCode', '==', shareCode),
-    where('shareEnabled', '==', true),
-  )
+  const q = query(collection(db, 'trips'), where('shareCode', '==', shareCode))
   const snap = await getDocs(q)
   if (snap.empty) return null
-  return { id: snap.docs[0].id, ...snap.docs[0].data() }
+  const trip = { id: snap.docs[0].id, ...snap.docs[0].data() }
+  return trip.shareEnabled ? trip : null
 }
 
 export async function joinTrip(tripId, userId) {

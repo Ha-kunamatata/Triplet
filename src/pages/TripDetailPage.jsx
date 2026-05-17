@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { getTrip, getSchedules, addSchedule, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem, updateTripBudgetData, updateTrip } from '../firebase/firestore'
+import { getTrip, getSchedules, addSchedule, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem, updateTripBudgetData, updateTrip, enableSharing, disableSharing } from '../firebase/firestore'
 import { generateDateRange, formatDisplayDate, formatShortDate, getDDay, calcTripStatus } from '../utils/dateUtils'
 import { getItemSortTime } from '../utils/tripItemUtils'
 import DayTab from '../components/schedule/DayTab'
@@ -48,6 +48,7 @@ export default function TripDetailPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [showKmlImport, setShowKmlImport] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
   const [dayOrders, setDayOrders] = useState({})
   const [activeItemId, setActiveItemId] = useState(null)
 
@@ -229,6 +230,9 @@ export default function TripDetailPage() {
             <span className="material-symbols-outlined" style={{ fontSize: 20 }}>arrow_back</span>
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowShareModal(true)} style={{ ...floatBtn, width: 'auto', padding: '0 14px', fontSize: 13, fontWeight: 600, gap: 5, display: 'flex', alignItems: 'center' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 15 }}>group_add</span>공유
+            </button>
             <button onClick={() => navigate(`/trips/${tripId}/diary`)} style={{ ...floatBtn, width: 'auto', padding: '0 14px', fontSize: 13, fontWeight: 600, gap: 5, display: 'flex', alignItems: 'center' }}>
               <span className="material-symbols-outlined" style={{ fontSize: 15 }}>book</span>일기
             </button>
@@ -515,6 +519,16 @@ export default function TripDetailPage() {
       >
         <span className="material-symbols-outlined" style={{ fontSize: 28 }}>add</span>
       </button>
+
+      {/* ══ 공유 모달 ══ */}
+      {showShareModal && (
+        <ShareModal
+          trip={trip}
+          tripId={tripId}
+          onClose={() => setShowShareModal(false)}
+          onTripUpdate={t => setTrip(prev => ({ ...prev, ...t }))}
+        />
+      )}
 
       {/* ══ KML Import ══ */}
       {showKmlImport && (
@@ -1793,4 +1807,124 @@ function fmtCost(n) {
   if (n >= 100000) return `${Math.round(n / 10000)}만원`
   if (n >= 10000) return `${(n / 10000).toFixed(1)}만원`
   return `${n.toLocaleString('ko-KR')}원`
+}
+
+/* ── 공유 모달 ── */
+function ShareModal({ trip, tripId, onClose, onTripUpdate }) {
+  const [loading, setLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const shareEnabled = !!trip.shareEnabled
+  const shareCode    = trip.shareCode ?? ''
+  const shareUrl     = shareEnabled
+    ? `${window.location.origin}${window.location.pathname}#/join/${shareCode}`
+    : ''
+  const memberCount  = (trip.sharedWith ?? []).length
+
+  async function handleToggle() {
+    setLoading(true)
+    try {
+      if (shareEnabled) {
+        await disableSharing(tripId)
+        onTripUpdate({ shareEnabled: false })
+      } else {
+        const code = await enableSharing(tripId)
+        onTripUpdate({ shareEnabled: true, shareCode: code })
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function copyLink() {
+    navigator.clipboard?.writeText(shareUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--c-surface)', borderRadius: '24px 24px 0 0', width: '100%', maxWidth: 680, padding: '0 0 calc(24px + env(safe-area-inset-bottom))', animation: 'sheetUp 0.28s var(--ease)', boxShadow: 'var(--shadow-xl)' }}>
+        {/* 핸들 */}
+        <div style={{ width: 36, height: 4, background: 'var(--c-border2)', borderRadius: 999, margin: '12px auto 0' }} />
+
+        {/* 헤더 */}
+        <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 13, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>👫</div>
+            <div>
+              <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--c-text-1)' }}>여행 공유</p>
+              <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 1 }}>링크로 초대해 함께 일정을 짜세요</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', background: 'var(--c-surface2)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+          </button>
+        </div>
+
+        <div style={{ padding: '20px 20px 0' }}>
+          {/* 공유 ON/OFF 토글 */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--c-surface2)', borderRadius: 16, padding: '14px 16px', marginBottom: 16 }}>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-text-1)' }}>공유 링크</p>
+              <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 2 }}>
+                {shareEnabled ? `${memberCount}명 참여 중` : '비활성화 상태'}
+              </p>
+            </div>
+            <button
+              onClick={handleToggle}
+              disabled={loading}
+              style={{
+                width: 52, height: 30, borderRadius: 999, cursor: 'pointer',
+                background: shareEnabled ? '#6366F1' : 'var(--c-border2)',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}
+            >
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%', background: '#fff',
+                position: 'absolute', top: 4, transition: 'left 0.2s',
+                left: shareEnabled ? 26 : 4,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              }} />
+            </button>
+          </div>
+
+          {/* 공유 링크 복사 */}
+          {shareEnabled && (
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text-2)', marginBottom: 8 }}>초대 링크</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1, background: 'var(--c-surface2)', borderRadius: 12, padding: '11px 14px', border: '1px solid var(--c-border)', overflow: 'hidden' }}>
+                  <p style={{ fontSize: 12, color: 'var(--c-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</p>
+                </div>
+                <button
+                  onClick={copyLink}
+                  style={{
+                    padding: '0 18px', borderRadius: 12, flexShrink: 0,
+                    background: copied ? '#10B981' : 'var(--c-primary)',
+                    color: '#fff', fontSize: 13, fontWeight: 700,
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  {copied ? '복사됨 ✓' : '복사'}
+                </button>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--c-text-3)', marginTop: 8, lineHeight: 1.6 }}>
+                링크를 받은 사람이 구글로 로그인하면 이 여행의 일정을 함께 보고 편집할 수 있어요.
+              </p>
+            </div>
+          )}
+
+          {/* 멤버 수 안내 */}
+          {shareEnabled && memberCount > 0 && (
+            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#10B981' }}>group</span>
+              <p style={{ fontSize: 13, color: '#166534', fontWeight: 600 }}>현재 {memberCount}명이 이 여행을 공유 중입니다.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }

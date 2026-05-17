@@ -13,6 +13,7 @@ import DiaryListPage   from './pages/DiaryListPage'
 import DiaryEditPage   from './pages/DiaryEditPage'
 import SavedPlacesPage from './pages/SavedPlacesPage'
 import ProfilePage     from './pages/ProfilePage'
+import JoinTripPage    from './pages/JoinTripPage'
 
 /** 인증 필요 — 미로그인 시 /login으로 */
 function PrivateRoute({ children }) {
@@ -72,6 +73,10 @@ export default function App() {
           element={<PrivateRoute><DiaryEditPage /></PrivateRoute>} />
         <Route path="/trips/:tripId/diary/:diaryId/edit"
           element={<PrivateRoute><DiaryEditPage /></PrivateRoute>} />
+
+        {/* 공유 초대 링크 */}
+        <Route path="/join/:shareCode"
+          element={<PrivateRoute><JoinTripPage /></PrivateRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

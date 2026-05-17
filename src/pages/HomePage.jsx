@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getTrips } from '../firebase/firestore'
+import { getTrips, getSharedTrips } from '../firebase/firestore'
 import { calcTripStatus, getDDay, formatShortDate, getTripDuration } from '../utils/dateUtils'
 import TripCard from '../components/trip/TripCard'
 import { TripCardSkeleton } from '../components/common/LoadingSpinner'
@@ -19,12 +19,19 @@ export default function HomePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [trips, setTrips] = useState([])
+  const [sharedTrips, setSharedTrips] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
 
   useEffect(() => {
     if (!user) return
-    getTrips(user.uid).then(setTrips).finally(() => setLoading(false))
+    Promise.all([
+      getTrips(user.uid),
+      getSharedTrips(user.uid),
+    ]).then(([own, shared]) => {
+      setTrips(own)
+      setSharedTrips(shared)
+    }).finally(() => setLoading(false))
   }, [user])
 
   const ongoing  = trips.filter(t => calcTripStatus(t.startDate, t.endDate) === 'ongoing')
@@ -138,6 +145,24 @@ export default function HomePage() {
             gap: 14,
           }}>
             {filtered.map(t => <TripCard key={t.id} trip={t} />)}
+          </div>
+        )}
+
+        {/* 공유받은 여행 */}
+        {!loading && sharedTrips.length > 0 && (
+          <div style={{ padding: '20px 16px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#8B5CF6', fontVariationSettings: "'FILL' 1" }}>group</span>
+              <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-text-1)' }}>공유받은 여행</p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {sharedTrips.map(t => (
+                <div key={t.id} style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: 12, right: 12, background: '#8B5CF6', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, zIndex: 1 }}>공유됨</div>
+                  <TripCard trip={t} />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -8,6 +8,8 @@ import {
   deleteDoc,
   query,
   where,
+  arrayUnion,
+  arrayRemove,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from './config'
@@ -191,4 +193,51 @@ export async function updateDiary(diaryId, data) {
 
 export async function deleteDiary(diaryId) {
   await deleteDoc(doc(db, 'diary', diaryId))
+}
+
+// ──────────────────────────────────────────
+// 여행 공유
+// ──────────────────────────────────────────
+
+function genShareCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase()
+}
+
+export async function enableSharing(tripId) {
+  const code = genShareCode()
+  await updateDoc(doc(db, 'trips', tripId), { shareCode: code, shareEnabled: true })
+  return code
+}
+
+export async function disableSharing(tripId) {
+  await updateDoc(doc(db, 'trips', tripId), { shareEnabled: false })
+}
+
+export async function getTripByShareCode(shareCode) {
+  const q = query(
+    collection(db, 'trips'),
+    where('shareCode', '==', shareCode),
+    where('shareEnabled', '==', true),
+  )
+  const snap = await getDocs(q)
+  if (snap.empty) return null
+  return { id: snap.docs[0].id, ...snap.docs[0].data() }
+}
+
+export async function joinTrip(tripId, userId) {
+  await updateDoc(doc(db, 'trips', tripId), {
+    sharedWith: arrayUnion(userId),
+  })
+}
+
+export async function leaveTrip(tripId, userId) {
+  await updateDoc(doc(db, 'trips', tripId), {
+    sharedWith: arrayRemove(userId),
+  })
+}
+
+export async function getSharedTrips(userId) {
+  const q = query(collection(db, 'trips'), where('sharedWith', 'array-contains', userId))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }

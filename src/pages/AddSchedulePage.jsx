@@ -515,7 +515,7 @@ function TypePicker({ onSelect, onBack }) {
     { type: ITEM_TYPES.MEMO,      desc: '자유 메모, 알림 사항' },
   ]
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--c-bg)' }}>
+    <div className="fullscreen-page" style={{ background: 'var(--c-bg)' }}>
       <div style={{ borderBottom: '1px solid var(--c-border)' }}>
         <PageHeader title="무엇을 추가할까요?" onBack={onBack} noBorder />
       </div>
@@ -525,6 +525,7 @@ function TypePicker({ onSelect, onBack }) {
           return (
             <button key={type} onClick={() => onSelect(type)}
               style={{
+                width: '100%',
                 display: 'flex', alignItems: 'center', gap: 16, padding: '18px 20px',
                 background: 'var(--c-surface)', border: `1.5px solid ${meta.color}30`,
                 borderRadius: 16, textAlign: 'left', transition: 'all 0.15s',
@@ -669,7 +670,7 @@ export default function AddSchedulePage() {
   const accent = meta.color ?? 'var(--c-primary)'
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--c-bg)' }}>
+    <div className="fullscreen-page" style={{ background: 'var(--c-bg)' }}>
       <div style={{ background: `linear-gradient(135deg,${accent}20,${accent}08)`, borderBottom: `3px solid ${accent}` }}>
         <PageHeader
           title={isEdit ? `${meta.label} 수정` : `${meta.label} 추가`}

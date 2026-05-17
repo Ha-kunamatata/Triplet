@@ -44,7 +44,7 @@ export default function DiaryEditPage() {
   const selectedWeather = DIARY_WEATHERS.find(w => w.key === form.weather)
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--c-surface)', display: 'flex', flexDirection: 'column' }}>
+    <div className="fullscreen-page" style={{ background: 'var(--c-surface)', display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Top nav ── */}
       <div style={{

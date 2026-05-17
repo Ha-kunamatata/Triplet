@@ -58,8 +58,8 @@ export default function JoinTripPage() {
   }[status] ?? { icon: '✈️', title: '처리 중…', sub: '', spin: true }
 
   return (
-    <div style={{
-      minHeight: '100dvh', display: 'flex', flexDirection: 'column',
+    <div className="fullscreen-page" style={{
+      display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       background: 'var(--c-surface)', padding: 24, gap: 20,
     }}>

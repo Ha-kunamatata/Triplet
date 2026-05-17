@@ -52,7 +52,7 @@ export default function CreateTripPage() {
   const selectedStyle = TRIP_STYLES.find(s => s.key === form.travelStyle)
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--c-bg)', paddingBottom: 32 }}>
+    <div className="fullscreen-page" style={{ background: 'var(--c-bg)', paddingBottom: 32 }}>
       <PageHeader
         title="새 여행 만들기"
         actions={

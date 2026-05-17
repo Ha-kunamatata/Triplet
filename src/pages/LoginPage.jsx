@@ -31,7 +31,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', width: '100%', display: 'flex', flexDirection: 'column', background: 'var(--c-surface)' }}>
+    <div className="fullscreen-page" style={{ display: 'flex', flexDirection: 'column', background: 'var(--c-surface)' }}>
       {/* Hero top area */}
       <div style={{
         flex: '0 0 auto',

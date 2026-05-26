@@ -965,7 +965,7 @@ function MiniMapOverlay({ items, activeId }) {
       position: 'fixed',
       bottom: 'calc(var(--bottom-nav-h) + var(--safe-bottom) + 76px)',
       right: 14, width: W,
-      background: 'rgba(255,255,255,0.96)',
+      background: 'var(--c-surface-glass)',
       borderRadius: 14,
       boxShadow: '0 4px 18px rgba(0,0,0,0.18)',
       border: '1px solid var(--c-border)',

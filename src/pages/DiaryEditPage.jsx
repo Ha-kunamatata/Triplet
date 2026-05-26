@@ -84,7 +84,7 @@ export default function DiaryEditPage() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: `calc(env(safe-area-inset-top,0px) + 14px) 16px 14px`,
         borderBottom: '1px solid var(--c-border)',
-        background: 'rgba(255,255,255,0.92)',
+        background: 'var(--c-surface-glass)',
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
         position: 'sticky', top: 0, zIndex: 50,
       }}>
@@ -230,7 +230,7 @@ export default function DiaryEditPage() {
       <div style={{
         padding: `12px 20px calc(12px + env(safe-area-inset-bottom,0px))`,
         borderTop: '1px solid var(--c-border)',
-        background: 'rgba(255,255,255,0.95)',
+        background: 'var(--c-surface-glass)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>

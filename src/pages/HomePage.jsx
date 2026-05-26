@@ -35,9 +35,10 @@ export default function HomePage() {
     }).finally(() => setLoading(false))
   }, [user])
 
-  const ongoing  = trips.filter(t => calcTripStatus(t.startDate, t.endDate) === 'ongoing')
-  const upcoming = trips.filter(t => calcTripStatus(t.startDate, t.endDate) === 'upcoming')
-  const completed = trips.filter(t => calcTripStatus(t.startDate, t.endDate) === 'completed')
+  const allTrips  = [...trips, ...sharedTrips]
+  const ongoing  = allTrips.filter(t => calcTripStatus(t.startDate, t.endDate) === 'ongoing')
+  const upcoming = allTrips.filter(t => calcTripStatus(t.startDate, t.endDate) === 'upcoming')
+  const completed = allTrips.filter(t => calcTripStatus(t.startDate, t.endDate) === 'completed')
   const filtered = filter === 'all' ? trips : trips.filter(t => calcTripStatus(t.startDate, t.endDate) === filter)
 
   return (
@@ -106,7 +107,7 @@ export default function HomePage() {
       {/* ── Ongoing trip hero banner ── */}
       {!loading && ongoing.length > 0 && (
         <div style={{ padding: '14px 16px 0' }}>
-          {ongoing.map(t => (
+          {ongoing.slice(0, 1).map(t => (
             <OngoingBanner key={t.id} trip={t} onClick={() => navigate(`/trips/${t.id}`)} />
           ))}
         </div>

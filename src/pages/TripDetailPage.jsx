@@ -10,7 +10,7 @@ import { ScheduleSkeleton } from '../components/common/LoadingSpinner'
 import EmptyState from '../components/common/EmptyState'
 import Modal from '../components/common/Modal'
 import Toast from '../components/common/Toast'
-import { SCHEDULE_CATEGORIES, TRIP_STATUS, CHECKLIST_CATEGORIES, DEFAULT_CHECKLIST, ITEM_TYPES, ITEM_TYPE_META, TRANSPORT_MODES } from '../constants'
+import { SCHEDULE_CATEGORIES, TRIP_STATUS, CHECKLIST_CATEGORIES, DEFAULT_CHECKLIST, ITEM_TYPES, ITEM_TYPE_META, TRANSPORT_MODES, TRIP_EMOJIS } from '../constants'
 import { formatDuration, getFlightDuration } from '../utils/timezoneUtils'
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
@@ -38,6 +38,8 @@ export default function TripDetailPage() {
     [setSearchParams],
   )
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [showEditSheet, setShowEditSheet] = useState(false)
   const [toast, setToast] = useState(null)
   const [checklist, setChecklist] = useState([])
   const [newItem, setNewItem] = useState('')
@@ -236,7 +238,7 @@ export default function TripDetailPage() {
             <button onClick={() => navigate(`/trips/${tripId}/diary`)} style={{ ...floatBtn, width: 'auto', padding: '0 14px', fontSize: 13, fontWeight: 600, gap: 5, display: 'flex', alignItems: 'center' }}>
               <span className="material-symbols-outlined" style={{ fontSize: 15 }}>book</span>일기
             </button>
-            <button onClick={() => setShowDeleteModal(true)} style={floatBtn}>
+            <button onClick={() => setShowMenu(true)} style={floatBtn}>
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>more_vert</span>
             </button>
           </div>
@@ -548,6 +550,52 @@ export default function TripDetailPage() {
           </p>
         </Modal>
       )}
+
+      {/* ── 액션 메뉴 (bottom sheet) ── */}
+      {showMenu && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowMenu(false)} />
+          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--c-surface)', borderRadius: '20px 20px 0 0', zIndex: 61, boxShadow: '0 -8px 32px rgba(15,23,42,0.2)', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)', animation: 'slideInUp 0.22s var(--ease)' }}>
+            <div style={{ width: 40, height: 4, background: 'var(--c-border2)', borderRadius: 2, margin: '14px auto 8px' }} />
+            <button onClick={() => { setShowMenu(false); setShowEditSheet(true) }}
+              style={{ width: '100%', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: '1px solid var(--c-border)', background: 'transparent', cursor: 'pointer' }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'var(--c-primary-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--c-primary)', fontVariationSettings: "'FILL' 1" }}>edit</span>
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-text-1)' }}>여행 수정</p>
+                <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 1 }}>제목, 날짜, 아이콘 변경</p>
+              </div>
+            </button>
+            <button onClick={() => { setShowMenu(false); setShowDeleteModal(true) }}
+              style={{ width: '100%', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, background: 'transparent', cursor: 'pointer' }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--c-error)', fontVariationSettings: "'FILL' 1" }}>delete</span>
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-error)' }}>여행 삭제</p>
+                <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 1 }}>삭제 후 복구 불가</p>
+              </div>
+            </button>
+            <button onClick={() => setShowMenu(false)} style={{ width: '100%', padding: '14px', color: 'var(--c-text-3)', fontSize: 14, fontWeight: 600, marginTop: 4, background: 'transparent', cursor: 'pointer' }}>취소</button>
+          </div>
+        </>
+      )}
+
+      {/* ── 여행 수정 시트 ── */}
+      {showEditSheet && (
+        <EditTripSheet
+          trip={trip}
+          onClose={() => setShowEditSheet(false)}
+          onSave={async (data) => {
+            await updateTrip(tripId, data)
+            setTrip(prev => ({ ...prev, ...data }))
+            setShowEditSheet(false)
+            setToast({ message: '여행 정보가 수정되었습니다.' })
+          }}
+        />
+      )}
+
       {toast && <Toast message={toast.message} onClose={() => setToast(null)} />}
     </div>
   )
@@ -1224,6 +1272,8 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
   const [editingCatLimit, setEditingCatLimit] = useState(null)
   const [catLimitInput,   setCatLimitInput]   = useState('')
   const [activeTab,       setActiveTab]       = useState('overview')
+  const [editingExpense,  setEditingExpense]  = useState(null)
+  const [editExpForm,     setEditExpForm]     = useState(null)
   const [showWizard,      setShowWizard]      = useState(false)
   const [wizardInput,     setWizardInput]     = useState('')
   const [showCurrency,    setShowCurrency]    = useState(false)
@@ -1276,6 +1326,20 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
   function removeExpense(id) {
     const next = expenses.filter(e => e.id !== id)
     setExpenses(next)
+    onSave(budget, next, catBudgets)
+  }
+
+  function startEditExpense(exp) {
+    setEditingExpense(exp.id)
+    setEditExpForm({ category: exp.category, label: exp.label, amount: String(exp.amount), date: exp.date || '', note: exp.note || '' })
+  }
+
+  function saveEditExpense() {
+    if (!editExpForm?.label || !editExpForm?.amount) return
+    const next = expenses.map(e => e.id === editingExpense ? { ...e, ...editExpForm, amount: Number(editExpForm.amount) || 0 } : e)
+    setExpenses(next)
+    setEditingExpense(null)
+    setEditExpForm(null)
     onSave(budget, next, catBudgets)
   }
 
@@ -1696,6 +1760,35 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
           </div>
           {[...expenses].reverse().map((exp, i, arr) => {
             const cat = BUDGET_CATS.find(c => c.key === exp.category) ?? BUDGET_CATS.at(-1)
+            const isEditing = editingExpense === exp.id
+            if (isEditing && editExpForm) {
+              return (
+                <div key={exp.id} style={{ padding: '12px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--c-border)' : 'none', background: 'var(--c-primary-light)' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                    {BUDGET_CATS.map(c => (
+                      <button key={c.key} onClick={() => setEditExpForm(p => ({ ...p, category: c.key }))}
+                        style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 14, fontSize: 11, background: editExpForm.category === c.key ? c.color + '18' : 'var(--c-surface2)', border: `1.5px solid ${editExpForm.category === c.key ? c.color : 'transparent'}`, color: editExpForm.category === c.key ? c.color : 'var(--c-text-3)', fontWeight: editExpForm.category === c.key ? 700 : 500 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 11, fontVariationSettings: "'FILL' 1" }}>{c.icon}</span>{c.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                    <input value={editExpForm.label} onChange={e => setEditExpForm(p => ({ ...p, label: e.target.value }))} placeholder="내용 *"
+                      style={{ height: 40, padding: '0 12px', border: '1.5px solid var(--c-primary)', borderRadius: 10, fontSize: 14, background: 'var(--c-surface)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none', boxSizing: 'border-box' }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input type="number" value={editExpForm.amount} onChange={e => setEditExpForm(p => ({ ...p, amount: e.target.value }))} placeholder="금액 *"
+                        style={{ flex: 1, height: 40, padding: '0 12px', border: '1.5px solid var(--c-border)', borderRadius: 10, fontSize: 14, background: 'var(--c-surface)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none', boxSizing: 'border-box' }} />
+                      <input type="date" value={editExpForm.date} onChange={e => setEditExpForm(p => ({ ...p, date: e.target.value }))}
+                        style={{ flex: 1, height: 40, padding: '0 12px', border: '1.5px solid var(--c-border)', borderRadius: 10, fontSize: 13, background: 'var(--c-surface)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none', boxSizing: 'border-box' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => { setEditingExpense(null); setEditExpForm(null) }} style={{ flex: 1, padding: '9px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: 'var(--c-surface2)', color: 'var(--c-text-2)' }}>취소</button>
+                    <button onClick={saveEditExpense} disabled={!editExpForm.label || !editExpForm.amount} style={{ flex: 2, padding: '9px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: editExpForm.label && editExpForm.amount ? 'var(--c-primary)' : 'var(--c-border2)', color: '#fff' }}>저장</button>
+                  </div>
+                </div>
+              )
+            }
             return (
               <div key={exp.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--c-border)' : 'none' }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: cat.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1709,9 +1802,12 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
                     {exp.note && <span style={{ fontSize: 11, color: 'var(--c-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{exp.note}</span>}
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-text-1)' }}>{Number(exp.amount).toLocaleString('ko-KR')}원</p>
-                  <button onClick={() => removeExpense(exp.id)} style={{ fontSize: 11, color: '#EF4444', background: '#FEF2F2', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>삭제</button>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={() => startEditExpense(exp)} style={{ fontSize: 11, color: 'var(--c-primary)', background: 'var(--c-primary-light)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>수정</button>
+                    <button onClick={() => removeExpense(exp.id)} style={{ fontSize: 11, color: '#EF4444', background: '#FEF2F2', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>삭제</button>
+                  </div>
                 </div>
               </div>
             )
@@ -1807,6 +1903,111 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
         </div>
       )}
     </div>
+  )
+}
+
+/* ── 여행 수정 시트 ── */
+const TRIP_COVER_GRADIENTS = {
+  '✈️':['#60A5FA','#2563EB'],'🗺️':['#34D399','#059669'],'🏖️':['#FBBF24','#F97316'],
+  '🏔️':['#6EE7B7','#10B981'],'🌆':['#A78BFA','#7C3AED'],'🌸':['#F9A8D4','#EC4899'],
+  '🍜':['#FCD34D','#D97706'],'🎡':['#67E8F9','#0891B2'],'🏰':['#D4A574','#92400E'],
+  '🌅':['#FCA5A5','#EF4444'],'🎭':['#C4B5FD','#8B5CF6'],'🚂':['#94A3B8','#475569'],
+}
+
+function EditTripSheet({ trip, onClose, onSave }) {
+  const [form, setForm] = useState({
+    title: trip.title || '',
+    destination: trip.destination || '',
+    startDate: trip.startDate || '',
+    endDate: trip.endDate || '',
+    emoji: trip.emoji || '✈️',
+  })
+  const [saving, setSaving] = useState(false)
+  const [bg1, bg2] = TRIP_COVER_GRADIENTS[form.emoji] ?? ['#93C5FD','#3B82F6']
+  const isValid = form.title && form.destination && form.startDate && form.endDate && form.startDate <= form.endDate
+
+  async function handleSave() {
+    if (!isValid || saving) return
+    setSaving(true)
+    try { await onSave(form) } finally { setSaving(false) }
+  }
+
+  const inp = { width: '100%', padding: '12px 14px', border: '1.5px solid var(--c-border)', borderRadius: 12, fontSize: 15, outline: 'none', boxSizing: 'border-box', background: 'var(--c-surface2)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', transition: 'border-color 0.15s' }
+
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 62, background: 'rgba(0,0,0,0.5)' }} onClick={onClose} />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--c-surface)', borderRadius: '24px 24px 0 0', zIndex: 63, boxShadow: '0 -12px 40px rgba(15,23,42,0.2)', maxHeight: '90dvh', overflowY: 'auto', animation: 'slideInUp 0.28s var(--ease)', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+        {/* Handle */}
+        <div style={{ width: 40, height: 4, background: 'var(--c-border2)', borderRadius: 2, margin: '14px auto 0' }} />
+
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px 12px' }}>
+          <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--c-text-1)', letterSpacing: -0.4 }}>여행 수정</p>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--c-surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+          </button>
+        </div>
+
+        {/* Preview card */}
+        <div style={{ margin: '0 16px 16px', height: 110, background: `linear-gradient(160deg, ${bg1}, ${bg2})`, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -20, right: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, marginBottom: 4 }}>{form.destination || '여행지'}</p>
+            <p style={{ color: form.title ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: 18, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{form.title || '여행 제목'}</p>
+          </div>
+          <span style={{ fontSize: 52, flexShrink: 0, filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))' }}>{form.emoji}</span>
+        </div>
+
+        <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Title */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-text-2)', display: 'block', marginBottom: 6 }}>여행 제목</label>
+            <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="예) 신혼여행 🌸" style={inp}
+              onFocus={e => { e.target.style.borderColor = 'var(--c-primary)' }}
+              onBlur={e => { e.target.style.borderColor = 'var(--c-border)' }} />
+          </div>
+
+          {/* Destination */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-text-2)', display: 'block', marginBottom: 6 }}>여행지</label>
+            <input value={form.destination} onChange={e => setForm(p => ({ ...p, destination: e.target.value }))} placeholder="예) 일본 오키나와" style={inp}
+              onFocus={e => { e.target.style.borderColor = 'var(--c-primary)' }}
+              onBlur={e => { e.target.style.borderColor = 'var(--c-border)' }} />
+          </div>
+
+          {/* Dates */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-text-2)', display: 'block', marginBottom: 6 }}>출발일</label>
+              <input type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} style={inp} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-text-2)', display: 'block', marginBottom: 6 }}>귀국일</label>
+              <input type="date" value={form.endDate} min={form.startDate} onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} style={inp} />
+            </div>
+          </div>
+
+          {/* Emoji picker */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-text-2)', display: 'block', marginBottom: 8 }}>여행 아이콘</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {TRIP_EMOJIS.map(e => (
+                <button key={e} onClick={() => setForm(p => ({ ...p, emoji: e }))}
+                  style={{ fontSize: 24, width: 46, height: 46, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: form.emoji === e ? 'var(--c-primary-light)' : 'var(--c-surface2)', border: `2px solid ${form.emoji === e ? 'var(--c-primary)' : 'transparent'}`, transition: 'all 0.15s', transform: form.emoji === e ? 'scale(1.12)' : 'scale(1)' }}>
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={handleSave} disabled={!isValid || saving}
+            style={{ width: '100%', padding: '15px', borderRadius: 14, background: isValid ? 'linear-gradient(135deg, var(--c-primary), #6366F1)' : 'var(--c-border2)', color: '#fff', fontSize: 15, fontWeight: 800, boxShadow: isValid ? '0 4px 16px rgba(99,102,241,0.35)' : 'none', transition: 'all 0.2s', marginTop: 4 }}>
+            {saving ? '저장 중...' : '수정 완료'}
+          </button>
+        </div>
+      </div>
+    </>
   )
 }
 

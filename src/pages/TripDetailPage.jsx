@@ -1070,10 +1070,10 @@ function ChecklistView({ checklist, newItem, onNewItemChange, onAdd, onToggle, o
       <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-xl)', padding: '16px 18px', marginBottom: 12, boxShadow: 'var(--shadow-xs)', border: '1px solid var(--c-border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-text-1)' }}>준비 현황</p>
-          <span style={{ fontSize: 22, fontWeight: 900, color: pct === 100 ? '#10B981' : 'var(--c-primary)' }}>{pct}%</span>
+          <span style={{ fontSize: 22, fontWeight: 900, color: pct === 100 ? 'var(--c-success)' : 'var(--c-primary)' }}>{pct}%</span>
         </div>
         <div style={{ height: 8, background: 'var(--c-border)', borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? '#10B981' : 'var(--c-primary)', borderRadius: 4, transition: 'width 0.5s ease' }} />
+          <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? 'var(--c-success)' : 'var(--c-primary)', borderRadius: 4, transition: 'width 0.5s ease' }} />
         </div>
         <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 6 }}>{done} / {total}개 완료</p>
       </div>
@@ -1094,8 +1094,8 @@ function ChecklistView({ checklist, newItem, onNewItemChange, onAdd, onToggle, o
                   onClick={() => onToggle(item.id)}
                   style={{
                     width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                    border: `2px solid ${item.checked ? '#10B981' : 'var(--c-border2)'}`,
-                    background: item.checked ? '#10B981' : 'transparent',
+                    border: `2px solid ${item.checked ? 'var(--c-success)' : 'var(--c-border2)'}`,
+                    background: item.checked ? 'var(--c-success)' : 'transparent',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     transition: 'all var(--t-fast)',
                   }}
@@ -1252,7 +1252,7 @@ function StatItem({ icon, label, value, color, divider }) {
 const floatBtn = { width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.32)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.20)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background var(--t-fast)' }
 
 function getCoverGradient(emoji) {
-  const m = { '✈️':['#60A5FA','#2563EB'],'🗺️':['#34D399','#059669'],'🏖️':['#FBBF24','#F97316'],'🏔️':['#6EE7B7','#10B981'],'🌆':['#A78BFA','#7C3AED'],'🌸':['#F9A8D4','#EC4899'],'🍜':['#FCD34D','#D97706'],'🎡':['#67E8F9','#0891B2'],'🏰':['#D4A574','#92400E'],'🌅':['#FCA5A5','#EF4444'],'🎭':['#C4B5FD','#8B5CF6'],'🚂':['#94A3B8','#475569'] }
+  const m = { '✈️':['#60A5FA','#2563EB'],'🗺️':['#34D399','#059669'],'🏖️':['#FBBF24','#F97316'],'🏔️':['#6EE7B7','var(--c-success)'],'🌆':['#A78BFA','#7C3AED'],'🌸':['#F9A8D4','#EC4899'],'🍜':['#FCD34D','#D97706'],'🎡':['#67E8F9','#0891B2'],'🏰':['#D4A574','#92400E'],'🌅':['#FCA5A5','#EF4444'],'🎭':['#C4B5FD','#8B5CF6'],'🚂':['#94A3B8','#475569'] }
   return m[emoji] ?? ['#93C5FD','#3B82F6']
 }
 
@@ -1301,7 +1301,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
   const totalSpent = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0)
   const pct        = budget > 0 ? Math.min(100, Math.round((totalSpent / budget) * 100)) : 0
   const overBudget = totalSpent > budget && budget > 0
-  const barColor   = pct >= 100 ? '#EF4444' : pct >= 80 ? '#F59E0B' : '#10B981'
+  const barColor   = pct >= 100 ? '#EF4444' : pct >= 80 ? '#F59E0B' : 'var(--c-success)'
 
   const integratedCostByCategory = {}
   schedules.forEach(s => {
@@ -1701,8 +1701,8 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
                 <input type="number" value={calcAmt} onChange={e => setCalcAmt(e.target.value)} placeholder={`금액 (${currency})`}
                   style={{ flex: 1, height: 44, padding: '0 12px', border: '1.5px solid #F97316', borderRadius: 10, fontSize: 15, background: 'rgba(249,115,22,0.08)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none' }} />
                 <span className="material-symbols-outlined" style={{ color: 'var(--c-text-3)', fontSize: 18 }}>arrow_forward</span>
-                <div style={{ flex: 1, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: calcResult ? 'rgba(16,185,129,0.08)' : 'var(--c-surface2)', borderRadius: 10, border: `1.5px solid ${calcResult ? '#10B981' : 'var(--c-border)'}` }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: calcResult ? '#10B981' : 'var(--c-text-3)' }}>
+                <div style={{ flex: 1, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: calcResult ? 'rgba(16,185,129,0.08)' : 'var(--c-surface2)', borderRadius: 10, border: `1.5px solid ${calcResult ? 'var(--c-success)' : 'var(--c-border)'}` }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: calcResult ? 'var(--c-success)' : 'var(--c-text-3)' }}>
                     {calcResult ? `${calcResult.toLocaleString('ko-KR')}원` : '?원'}
                   </span>
                 </div>
@@ -1926,7 +1926,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
 /* ── 여행 수정 시트 ── */
 const TRIP_COVER_GRADIENTS = {
   '✈️':['#60A5FA','#2563EB'],'🗺️':['#34D399','#059669'],'🏖️':['#FBBF24','#F97316'],
-  '🏔️':['#6EE7B7','#10B981'],'🌆':['#A78BFA','#7C3AED'],'🌸':['#F9A8D4','#EC4899'],
+  '🏔️':['#6EE7B7','var(--c-success)'],'🌆':['#A78BFA','#7C3AED'],'🌸':['#F9A8D4','#EC4899'],
   '🍜':['#FCD34D','#D97706'],'🎡':['#67E8F9','#0891B2'],'🏰':['#D4A574','#92400E'],
   '🌅':['#FCA5A5','#EF4444'],'🎭':['#C4B5FD','#8B5CF6'],'🚂':['#94A3B8','#475569'],
 }
@@ -2127,7 +2127,7 @@ function ShareModal({ trip, tripId, onClose, onTripUpdate }) {
                   onClick={copyLink}
                   style={{
                     padding: '0 18px', borderRadius: 12, flexShrink: 0,
-                    background: copied ? '#10B981' : 'var(--c-primary)',
+                    background: copied ? 'var(--c-success)' : 'var(--c-primary)',
                     color: '#fff', fontSize: 13, fontWeight: 700,
                     transition: 'background 0.2s',
                   }}

@@ -75,13 +75,13 @@ export default function ProfilePage() {
           {Object.keys(mostVisited).length > 0 && (
             <div style={{ margin: '10px 16px 0', background: 'var(--c-surface)', borderRadius: 'var(--r-xl)', padding: '14px 16px', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--c-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#10B981', fontVariationSettings: "'FILL' 1" }}>travel_explore</span>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--c-success)', fontVariationSettings: "'FILL' 1" }}>travel_explore</span>
                 <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>자주 방문한 여행지</p>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {Object.entries(mostVisited).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([dest, cnt]) => (
                   <div key={dest} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', padding: '5px 12px', borderRadius: 20 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#10B981' }}>{dest}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-success)' }}>{dest}</span>
                     <span style={{ fontSize: 11, color: 'var(--c-text-3)', fontWeight: 600 }}>{cnt}회</span>
                   </div>
                 ))}

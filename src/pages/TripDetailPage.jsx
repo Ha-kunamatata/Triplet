@@ -355,7 +355,7 @@ export default function TripDetailPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button
                     onClick={() => setShowKmlImport(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, background: 'linear-gradient(135deg,#EFF6FF,#F0FDF4)', border: '1px solid #BFDBFE', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#1D4ED8' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, background: 'var(--c-primary-light)', border: '1px solid var(--c-primary-dim)', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--c-primary)' }}
                   >
                     <span style={{ fontSize: 14 }}>🗺️</span>내 지도
                   </button>
@@ -2143,9 +2143,9 @@ function ShareModal({ trip, tripId, onClose, onTripUpdate }) {
 
           {/* 멤버 수 안내 */}
           {shareEnabled && memberCount > 0 && (
-            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#10B981' }}>group</span>
-              <p style={{ fontSize: 13, color: '#166534', fontWeight: 600 }}>현재 {memberCount}명이 이 여행을 공유 중입니다.</p>
+            <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 12, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--c-success,#10B981)' }}>group</span>
+              <p style={{ fontSize: 13, color: 'var(--c-text)', fontWeight: 600 }}>현재 {memberCount}명이 이 여행을 공유 중입니다.</p>
             </div>
           )}
         </div>

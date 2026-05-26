@@ -88,19 +88,36 @@ export default function HomePage() {
 
         {/* 필터 탭 */}
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '10px 16px 12px', scrollbarWidth: 'none' }}>
-          {FILTERS.map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key)} style={{
-              padding: '7px 16px', borderRadius: 'var(--r-full)', flexShrink: 0,
-              background: filter === f.key ? 'var(--c-primary)' : 'var(--c-surface2)',
-              color: filter === f.key ? '#fff' : 'var(--c-text-2)',
-              border: 'none',
-              fontSize: 13, fontWeight: filter === f.key ? 700 : 500,
-              boxShadow: filter === f.key ? '0 2px 10px rgba(59,130,246,0.3)' : 'none',
-              transition: 'all 0.15s',
-            }}>
-              {f.label}
-            </button>
-          ))}
+          {FILTERS.map(f => {
+            const count = f.key === 'all' ? trips.length
+              : f.key === 'upcoming' ? upcoming.length
+              : f.key === 'ongoing' ? ongoing.length
+              : completed.length
+            return (
+              <button key={f.key} onClick={() => setFilter(f.key)} style={{
+                padding: '7px 14px', borderRadius: 'var(--r-full)', flexShrink: 0,
+                background: filter === f.key ? 'var(--c-primary)' : 'var(--c-surface2)',
+                color: filter === f.key ? '#fff' : 'var(--c-text-2)',
+                border: 'none',
+                fontSize: 13, fontWeight: filter === f.key ? 700 : 500,
+                boxShadow: filter === f.key ? '0 2px 10px rgba(59,130,246,0.3)' : 'none',
+                transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                {f.label}
+                {!loading && count > 0 && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, lineHeight: '17px', padding: '0 6px',
+                    borderRadius: 'var(--r-full)', minWidth: 17, textAlign: 'center',
+                    background: filter === f.key ? 'rgba(255,255,255,0.25)' : 'var(--c-border)',
+                    color: filter === f.key ? '#fff' : 'var(--c-text-3)',
+                  }}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
       </div>
 

@@ -88,9 +88,9 @@ function MapBtn({ icon, title, onClick, active, children, style: extraStyle }) {
       title={title}
       style={{
         display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-        background: active ? '#3B82F6' : 'rgba(255,255,255,0.97)',
+        background: active ? 'var(--c-primary)' : 'var(--c-surface-glass)',
         backdropFilter:'blur(14px)', WebkitBackdropFilter:'blur(14px)',
-        color: active ? '#fff' : '#0F172A',
+        color: active ? '#fff' : 'var(--c-text)',
         border:'none', borderRadius: children ? 22 : '50%',
         padding: children ? '8px 16px' : 0,
         width: children ? 'auto' : 44, height: 44,
@@ -273,12 +273,12 @@ export default function TripMap({
   /* ── Placeholders ────────────────────────────────────── */
   if (status === 'no-coords') {
     return (
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'48px 24px', background:'#F8FAFC', textAlign:'center', gap:14, minHeight:220 }}>
-        <div style={{ width:64, height:64, borderRadius:'50%', background:'#EFF6FF', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <span className="material-symbols-outlined" style={{ fontSize:32, color:'#3B82F6', fontVariationSettings:"'FILL' 1" }}>location_off</span>
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'48px 24px', background:'var(--c-surface2)', textAlign:'center', gap:14, minHeight:220 }}>
+        <div style={{ width:64, height:64, borderRadius:'50%', background:'var(--c-primary-light)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span className="material-symbols-outlined" style={{ fontSize:32, color:'var(--c-primary)', fontVariationSettings:"'FILL' 1" }}>location_off</span>
         </div>
-        <p style={{ fontSize:17, fontWeight:800, color:'#0F172A' }}>지도에 표시할 위치가 없어요</p>
-        <p style={{ fontSize:13, color:'#64748B', lineHeight:1.7 }}>일정 추가 시 장소를 검색하면<br/>지도에 경로가 표시됩니다</p>
+        <p style={{ fontSize:17, fontWeight:800, color:'var(--c-text)' }}>지도에 표시할 위치가 없어요</p>
+        <p style={{ fontSize:13, color:'var(--c-text2)', lineHeight:1.7 }}>일정 추가 시 장소를 검색하면<br/>지도에 경로가 표시됩니다</p>
       </div>
     )
   }
@@ -286,7 +286,7 @@ export default function TripMap({
   const displayCount = (showAll ? allGeoItems : dayGeoItems).length
 
   return (
-    <div style={{ position:'relative', width:'100%', height, background:'#E2E8F0' }}>
+    <div style={{ position:'relative', width:'100%', height, background:'var(--c-border)' }}>
 
       {/* Map container */}
       <div ref={mapContainerRef} style={{ width:'100%', height:'100%' }} />
@@ -304,13 +304,13 @@ export default function TripMap({
 
             {/* Day legend */}
             {showAll && dates.length > 0 && (
-              <div style={{ background:'rgba(255,255,255,0.97)', backdropFilter:'blur(14px)', borderRadius:14, padding:'8px 12px', boxShadow:'0 2px 16px rgba(0,0,0,0.14)', maxHeight:180, overflowY:'auto' }}>
-                <p style={{ fontSize:10, fontWeight:700, color:'#94A3B8', textTransform:'uppercase', letterSpacing:0.6, marginBottom:6 }}>Day 색상</p>
+              <div style={{ background:'var(--c-surface-glass)', backdropFilter:'blur(14px)', borderRadius:14, padding:'8px 12px', boxShadow:'0 2px 16px rgba(0,0,0,0.14)', maxHeight:180, overflowY:'auto' }}>
+                <p style={{ fontSize:10, fontWeight:700, color:'var(--c-text2)', textTransform:'uppercase', letterSpacing:0.6, marginBottom:6 }}>Day 색상</p>
                 {dates.map((d, i) => (
                   <div key={d} style={{ display:'flex', alignItems:'center', gap:7, padding:'2px 0' }}>
                     <div style={{ width:10, height:10, borderRadius:'50%', background:DAY_COLORS[i % DAY_COLORS.length], flexShrink:0 }} />
-                    <span style={{ fontSize:11, color:'#0F172A', fontWeight:700 }}>Day {i+1}</span>
-                    <span style={{ fontSize:10, color:'#94A3B8' }}>{d.slice(5).replace('-','/')}</span>
+                    <span style={{ fontSize:11, color:'var(--c-text)', fontWeight:700 }}>Day {i+1}</span>
+                    <span style={{ fontSize:10, color:'var(--c-text2)' }}>{d.slice(5).replace('-','/')}</span>
                   </div>
                 ))}
               </div>
@@ -318,15 +318,15 @@ export default function TripMap({
 
             {/* Place count */}
             {displayCount > 0 && (
-              <div style={{ background:'rgba(255,255,255,0.97)', backdropFilter:'blur(14px)', borderRadius:20, padding:'5px 12px', boxShadow:'0 2px 10px rgba(0,0,0,0.12)', display:'inline-flex', alignItems:'center', gap:5, alignSelf:'flex-start' }}>
-                <span style={{ fontSize:12, fontWeight:700, color:'#0F172A' }}>📍 {displayCount}곳</span>
+              <div style={{ background:'var(--c-surface-glass)', backdropFilter:'blur(14px)', borderRadius:20, padding:'5px 12px', boxShadow:'0 2px 10px rgba(0,0,0,0.12)', display:'inline-flex', alignItems:'center', gap:5, alignSelf:'flex-start' }}>
+                <span style={{ fontSize:12, fontWeight:700, color:'var(--c-text)' }}>📍 {displayCount}곳</span>
               </div>
             )}
           </div>
 
           {/* ── Top-right controls ── */}
           <div style={{ position:'absolute', top:12, right:12, zIndex:1000, display:'flex', flexDirection:'column', gap:8 }}>
-            <MapBtn icon={locating ? 'progress_activity' : 'my_location'} title="현재 위치" onClick={locate} style={{ color: locating ? '#94A3B8' : '#3B82F6' }} />
+            <MapBtn icon={locating ? 'progress_activity' : 'my_location'} title="현재 위치" onClick={locate} style={{ color: locating ? 'var(--c-text2)' : 'var(--c-primary)' }} />
             <MapBtn icon="add" title="확대" onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom()||13)+1)} />
             <MapBtn icon="remove" title="축소" onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom()||13)-1)} />
           </div>
@@ -336,7 +336,7 @@ export default function TripMap({
             {/* Google Maps route link */}
             <button
               onClick={openGoogleRoute}
-              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.97)', backdropFilter:'blur(14px)', border:'none', borderRadius:22, padding:'8px 14px', fontSize:12, fontWeight:800, color:'#0F172A', cursor:'pointer', boxShadow:'0 2px 14px rgba(0,0,0,0.16)' }}
+              style={{ display:'flex', alignItems:'center', gap:6, background:'var(--c-surface-glass)', backdropFilter:'blur(14px)', border:'none', borderRadius:22, padding:'8px 14px', fontSize:12, fontWeight:800, color:'var(--c-text)', cursor:'pointer', boxShadow:'0 2px 14px rgba(0,0,0,0.16)' }}
             >
               <span style={{ fontSize:16 }}>🌍</span>구글맵에서 경로 보기
             </button>

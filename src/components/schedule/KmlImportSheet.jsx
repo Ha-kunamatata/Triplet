@@ -132,8 +132,8 @@ export default function KmlImportSheet({ selectedDate, onClose, onImport }) {
           {places.length === 0 && (
             <>
               {/* 안내 가이드 */}
-              <div style={{ background: 'linear-gradient(135deg, #EFF6FF, #F0FDF4)', borderRadius: 16, padding: '16px', marginBottom: 16, border: '1px solid var(--c-border)' }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#1E3A5F', marginBottom: 12 }}>📖 Google 내지도에서 KML 가져오기</p>
+              <div style={{ background: 'var(--c-surface2)', borderRadius: 16, padding: '16px', marginBottom: 16, border: '1px solid var(--c-border)' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 12 }}>📖 Google 내지도에서 KML 가져오기</p>
                 {[
                   { num: '1', text: '구글 지도 앱 또는 maps.google.com 접속', sub: '왼쪽 메뉴 → "내 지도" 선택' },
                   { num: '2', text: '가져올 지도 열기', sub: '원하는 지도를 탭' },

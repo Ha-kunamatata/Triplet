@@ -1,25 +1,31 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function Modal({ title, children, onClose, confirmLabel, onConfirm, danger = false }) {
   const firstBtnRef = useRef(null)
+  const [closing, setClosing] = useState(false)
+
+  function handleClose() {
+    setClosing(true)
+    setTimeout(onClose, 240)
+  }
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     firstBtnRef.current?.focus()
 
     function onKeyDown(e) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleClose()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.body.style.overflow = ''
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [onClose])
+  }, []) // eslint-disable-line
 
   return (
     <div
-      onClick={onClose}
+      onClick={handleClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
@@ -29,6 +35,7 @@ export default function Modal({ title, children, onClose, confirmLabel, onConfir
         backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
         zIndex: 1000, padding: '0',
+        animation: closing ? 'fadeOut 0.24s var(--ease) both' : 'fadeIn 0.2s ease both',
       }}
     >
       <div
@@ -38,7 +45,7 @@ export default function Modal({ title, children, onClose, confirmLabel, onConfir
           borderRadius: 'var(--r-2xl) var(--r-2xl) 0 0',
           width: '100%', maxWidth: 'var(--content-max)',
           padding: '8px 20px calc(28px + env(safe-area-inset-bottom))',
-          animation: 'sheetUp 0.28s var(--ease)',
+          animation: closing ? 'sheetDown 0.24s var(--ease) both' : 'sheetUp 0.28s var(--ease)',
           boxShadow: 'var(--shadow-xl)',
           maxHeight: '90dvh',
           overflowY: 'auto',
@@ -58,7 +65,7 @@ export default function Modal({ title, children, onClose, confirmLabel, onConfir
           <div style={{ display: 'flex', gap: 10, marginTop: 'var(--sp-5)' }}>
             <button
               ref={firstBtnRef}
-              onClick={onClose}
+              onClick={handleClose}
               style={{
                 flex: 1, padding: '14px', borderRadius: 'var(--r-xl)',
                 background: 'var(--c-surface2)', border: '1px solid var(--c-border)',
@@ -85,7 +92,8 @@ export default function Modal({ title, children, onClose, confirmLabel, onConfir
         )}
       </div>
       <style>{`
-        @keyframes sheetUp { from { transform: translateY(100%); opacity:0; } to { transform: translateY(0); opacity:1; } }
+        @keyframes sheetUp   { from { transform: translateY(100%); opacity:0; } to { transform: translateY(0); opacity:1; } }
+        @keyframes sheetDown { from { transform: translateY(0); } to { transform: translateY(105%); } }
         @media (min-width: 768px) {
           [role="dialog"] { align-items: center !important; padding: 20px !important; }
           [role="dialog"] > div { border-radius: var(--r-2xl) !important; max-width: 480px !important; }

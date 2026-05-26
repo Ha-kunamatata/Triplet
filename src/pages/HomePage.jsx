@@ -146,7 +146,11 @@ export default function HomePage() {
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: 14,
           }}>
-            {filtered.map(t => <TripCard key={t.id} trip={t} />)}
+            {filtered.map((t, idx) => (
+              <div key={t.id} style={{ animation: `slideInUp 0.28s var(--ease) ${idx * 0.05}s both` }}>
+                <TripCard trip={t} />
+              </div>
+            ))}
           </div>
         )}
 
@@ -158,8 +162,8 @@ export default function HomePage() {
               <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-text-1)' }}>공유받은 여행</p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {sharedTrips.map(t => (
-                <div key={t.id} style={{ position: 'relative' }}>
+              {sharedTrips.map((t, idx) => (
+                <div key={t.id} style={{ position: 'relative', animation: `slideInUp 0.28s var(--ease) ${idx * 0.05}s both` }}>
                   <div style={{ position: 'absolute', top: 12, right: 12, background: '#8B5CF6', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, zIndex: 1 }}>공유됨</div>
                   <TripCard trip={t} />
                 </div>

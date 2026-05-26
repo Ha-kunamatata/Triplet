@@ -743,6 +743,15 @@ html.light {
 .animate-pop-in   { animation: popIn 0.35s var(--ease) both; }
 .animate-count-up { animation: countUp 0.4s var(--ease) both; }
 
+@keyframes slideDown {
+  from { transform: translateY(0); }
+  to   { transform: translateY(105%); }
+}
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
 /* Toss 스타일 구분선 */
 .toss-divider {
   height: 8px;

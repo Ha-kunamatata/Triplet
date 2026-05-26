@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getTrip, getDiaries, deleteDiary, addDiary } from '../firebase/firestore'
+import { getTrip, getDiaries, deleteDiary, createDiary } from '../firebase/firestore'
 import { timestampToStr } from '../utils/dateUtils'
 import { DIARY_MOODS, DIARY_WEATHERS } from '../constants'
 import EmptyState from '../components/common/EmptyState'
 import LoadingSpinner from '../components/common/LoadingSpinner'
-import Toast from '../components/common/Toast'
+import { useToast } from '../components/common/Toast'
 
 const MOOD_COLORS = {
   happy: '#F59E0B', excited: '#EF4444', good: '#10B981',
@@ -18,7 +18,7 @@ export default function DiaryListPage() {
   const [trip, setTrip] = useState(null)
   const [diaries, setDiaries] = useState([])
   const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState(null)
+  const { show: showToast, ToastEl } = useToast()
   const [filterMood, setFilterMood] = useState('')
 
   useEffect(() => {
@@ -34,14 +34,13 @@ export default function DiaryListPage() {
     const deleted = diaries.find(d => d.id === id)
     await deleteDiary(id)
     setDiaries(prev => prev.filter(d => d.id !== id))
-    setToast({
-      message: '일기가 삭제되었습니다.',
+    showToast('일기가 삭제되었습니다.', {
       action: '취소',
       duration: 4000,
       onAction: async () => {
         if (deleted) {
           const { id: _, ...data } = deleted
-          const newId = await addDiaryEntry(tripId, data)
+          const newId = await createDiary(data.userId, tripId, data)
           setDiaries(prev => [...prev, { id: newId, ...data }].sort((a, b) => {
             const ta = a.createdAt?.toMillis?.() ?? 0
             const tb = b.createdAt?.toMillis?.() ?? 0
@@ -233,23 +232,9 @@ export default function DiaryListPage() {
         </div>
       )}
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          action={toast.action}
-          onAction={toast.onAction}
-          duration={toast.duration}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {ToastEl}
     </div>
   )
-}
-
-// placeholder until addDiary is renamed
-async function addDiaryEntry(tripId, data) {
-  const { createDiary } = await import('../firebase/firestore')
-  return createDiary(data.userId, tripId, data)
 }
 
 function DiaryBadge({ emoji, label, color }) {

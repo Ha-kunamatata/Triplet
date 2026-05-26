@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { createDiary, updateDiary, getDiary } from '../firebase/firestore'
@@ -12,7 +12,11 @@ export default function DiaryEditPage() {
 
   const [form, setForm] = useState({ title: '', content: '', mood: '', weather: '' })
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [showMeta, setShowMeta] = useState(false)
+  const autoSaveRef = useRef(null)
+  const diaryIdRef = useRef(diaryId)
+  const isNewRef = useRef(!diaryId)
 
   useEffect(() => {
     if (!isEdit) return
@@ -21,8 +25,37 @@ export default function DiaryEditPage() {
     })
   }, [isEdit, diaryId])
 
-  const set = key => e => setForm(p => ({ ...p, [key]: e.target.value }))
+  const set = key => e => {
+    const val = e.target.value
+    setForm(p => {
+      const next = { ...p, [key]: val }
+      scheduleAutoSave(next)
+      return next
+    })
+    setSaved(false)
+  }
   const toggle = (key, val) => setForm(p => ({ ...p, [key]: p[key] === val ? '' : val }))
+
+  function scheduleAutoSave(nextForm) {
+    if (!nextForm.title?.trim() || !nextForm.content?.trim()) return
+    clearTimeout(autoSaveRef.current)
+    autoSaveRef.current = setTimeout(async () => {
+      try {
+        if (diaryIdRef.current) {
+          await updateDiary(diaryIdRef.current, nextForm)
+        } else if (isNewRef.current) {
+          const id = await createDiary(user.uid, tripId, nextForm)
+          diaryIdRef.current = id
+          isNewRef.current = false
+          window.history.replaceState(null, '', window.location.href.replace('/new', `/${id}/edit`))
+        }
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      } catch {}
+    }, 1400)
+  }
+
+  useEffect(() => () => clearTimeout(autoSaveRef.current), [])
 
   const wordCount = form.content.trim() ? form.content.trim().split(/\s+/).length : 0
   const charCount = form.content.length
@@ -63,9 +96,9 @@ export default function DiaryEditPage() {
             <p style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--fw-bold)', color: 'var(--c-text-1)' }}>
               {isEdit ? '일기 수정' : '일기 쓰기'}
             </p>
-            {form.content && (
-              <p style={{ fontSize: 10, color: 'var(--c-text-3)' }}>{charCount}자 · {wordCount}단어</p>
-            )}
+            <p style={{ fontSize: 10, color: saved ? 'var(--c-success)' : 'var(--c-text-3)', transition: 'color 0.3s' }}>
+              {saved ? '✓ 자동 저장됨' : form.content ? `${charCount}자 · ${wordCount}단어` : '글을 입력하면 자동 저장돼요'}
+            </p>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

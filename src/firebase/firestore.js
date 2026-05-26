@@ -12,6 +12,7 @@ import {
   arrayUnion,
   arrayRemove,
   serverTimestamp,
+  onSnapshot,
 } from 'firebase/firestore'
 import { db } from './config'
 
@@ -90,6 +91,24 @@ export async function getSchedules(tripId) {
   return docs.sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date)
     return (a.startTime || '99:99').localeCompare(b.startTime || '99:99')
+  })
+}
+
+export function subscribeToSchedules(tripId, callback) {
+  const q = query(collection(db, 'schedules'), where('tripId', '==', tripId))
+  return onSnapshot(q, snap => {
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    callback(docs.sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date)
+      return (a.startTime || '99:99').localeCompare(b.startTime || '99:99')
+    }))
+  })
+}
+
+export function subscribeToTripItems(tripId, callback) {
+  const q = query(collection(db, 'tripItems'), where('tripId', '==', tripId))
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
   })
 }
 

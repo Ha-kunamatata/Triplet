@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { getTrip, getSchedules, addSchedule, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem, updateTripBudgetData, updateTrip, enableSharing, disableSharing } from '../firebase/firestore'
+import { getTrip, addSchedule, addTripItem, deleteTrip, deleteSchedule, updateChecklist, deleteTripItem, updateTripBudgetData, updateTrip, enableSharing, disableSharing, subscribeToSchedules, subscribeToTripItems } from '../firebase/firestore'
 import { generateDateRange, formatDisplayDate, formatShortDate, getDDay, calcTripStatus } from '../utils/dateUtils'
 import { getItemSortTime } from '../utils/tripItemUtils'
 import DayTab from '../components/schedule/DayTab'
@@ -64,24 +64,22 @@ export default function TripDetailPage() {
   )
 
   useEffect(() => {
-    Promise.allSettled([getTrip(tripId), getSchedules(tripId), getTripItems(tripId)])
-      .then(([tRes, sRes, iRes]) => {
-        const t = tRes.status === 'fulfilled' ? tRes.value : null
-        const s = sRes.status === 'fulfilled' ? sRes.value : []
-        const items = iRes.status === 'fulfilled' ? iRes.value : []
+    let unsubSchedules, unsubItems
+    getTrip(tripId)
+      .then(t => {
+        if (!t) return
         setTrip(t)
-        setSchedules(s)
-        setTripItems(items)
-        if (t) {
-          setSelectedDate(t.startDate)
-          setChecklist(t.checklist ?? DEFAULT_CHECKLIST)
-          setBudget(t.budget ?? 0)
-          setExpenses(t.expenses ?? [])
-          setCategoryBudgets(t.categoryBudgets ?? {})
-          setDayOrders(t.dayOrders ?? {})
-        }
+        setSelectedDate(t.startDate)
+        setChecklist(t.checklist ?? DEFAULT_CHECKLIST)
+        setBudget(t.budget ?? 0)
+        setExpenses(t.expenses ?? [])
+        setCategoryBudgets(t.categoryBudgets ?? {})
+        setDayOrders(t.dayOrders ?? {})
+        unsubSchedules = subscribeToSchedules(tripId, setSchedules)
+        unsubItems     = subscribeToTripItems(tripId, setTripItems)
       })
       .finally(() => setLoading(false))
+    return () => { unsubSchedules?.(); unsubItems?.() }
   }, [tripId])
 
   const handleCombinedDragEnd = useCallback(({ active, over }) => {
@@ -188,9 +186,19 @@ export default function TripDetailPage() {
   const miniMapItems = dayCombined.filter(x => x.lat && x.lng)
 
   async function handleDeleteSchedule(id) {
+    const deleted = schedules.find(s => s.id === id)
     await deleteSchedule(id)
-    setSchedules(prev => prev.filter(s => s.id !== id))
-    setToast({ message: '일정이 삭제되었습니다.' })
+    setToast({
+      message: '일정이 삭제되었습니다.',
+      action: '취소',
+      duration: 4000,
+      onAction: async () => {
+        if (deleted) {
+          const { id: _, createdAt: __, ...data } = deleted
+          await addSchedule(tripId, data)
+        }
+      },
+    })
   }
 
   async function handleKmlImport(places) {
@@ -216,7 +224,7 @@ export default function TripDetailPage() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--c-bg)', paddingBottom: 100 }}>
+    <div className="page-enter" style={{ minHeight: '100dvh', background: 'var(--c-bg)', paddingBottom: 100 }}>
 
       {/* ══ Hero ══ */}
       <div style={{ height: 270, background: `linear-gradient(160deg,${bg1},${bg2})`, position: 'relative', overflow: 'hidden' }}>
@@ -377,7 +385,7 @@ export default function TripDetailPage() {
                     const next = dayCombined[idx + 1]
                     const isLast = idx === dayCombined.length - 1
                     return (
-                      <div key={item.id}>
+                      <div key={item.id} style={{ animation: `slideInUp 0.28s var(--ease) ${idx * 0.045}s both` }}>
                         <SortableCombinedItem
                           item={item}
                           number={idx + 1}
@@ -390,7 +398,14 @@ export default function TripDetailPage() {
                             : navigate(`/trips/${tripId}/schedule/${item.id}/edit`)
                           }
                           onDelete={item._type === 'item'
-                            ? async () => { await deleteTripItem(item.id); setTripItems(prev => prev.filter(i => i.id !== item.id)); setToast({ message: '삭제되었습니다.' }) }
+                            ? async () => {
+                                const deleted = item
+                                await deleteTripItem(item.id)
+                                setToast({ message: '삭제되었습니다.', action: '취소', duration: 4000, onAction: async () => {
+                                  const { id: _, createdAt: __, _type: ___, ...data } = deleted
+                                  await addTripItem(tripId, data)
+                                }})
+                              }
                             : () => handleDeleteSchedule(item.id)
                           }
                         />
@@ -597,7 +612,15 @@ export default function TripDetailPage() {
         />
       )}
 
-      {toast && <Toast message={toast.message} onClose={() => setToast(null)} />}
+      {toast && (
+        <Toast
+          message={toast.message}
+          action={toast.action}
+          onAction={toast.onAction}
+          duration={toast.duration}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

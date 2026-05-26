@@ -333,7 +333,8 @@ export default function TripDetailPage() {
         )}
       </div>
 
-      {/* ══ Content ══ */}
+      {/* ══ Content (keyed for enter animation on view switch) ══ */}
+      <div key={viewMode} style={{ animation: 'slideInUp 0.2s var(--ease) both' }}>
       {viewMode === 'timeline' ? (
         <>
           {selectedDate && (() => {
@@ -526,6 +527,7 @@ export default function TripDetailPage() {
           )}
         </div>
       )}
+      </div>{/* end keyed content wrapper */}
 
       {/* ══ FAB ══ */}
       <button

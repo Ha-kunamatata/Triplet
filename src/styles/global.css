@@ -801,6 +801,12 @@ html.light {
   outline-offset: 2px;
   border-radius: 4px;
 }
+/* Native input elements: override outline with border-color (inline styles use outline:none) */
+input:focus, textarea:focus, select:focus {
+  border-color: var(--c-primary) !important;
+  box-shadow: 0 0 0 3px var(--c-primary-dim);
+  outline: none;
+}
 
 /* ─ 인터랙티브 요소 공통 피드백 ─ */
 .interactive {

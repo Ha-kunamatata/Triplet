@@ -590,6 +590,7 @@ export default function TripDetailPage() {
           onSave={async (data) => {
             await updateTrip(tripId, data)
             setTrip(prev => ({ ...prev, ...data }))
+            if (data.startDate) setSelectedDate(data.startDate)
             setShowEditSheet(false)
             setToast({ message: '여행 정보가 수정되었습니다.' })
           }}
@@ -1455,7 +1456,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 4 }}>신혼여행 예산</p>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 4 }}>여행 예산</p>
             {budget > 0 ? (
               <>
                 <p style={{ fontSize: 28, fontWeight: 900, color: '#fff', lineHeight: 1.1 }}>{budget.toLocaleString('ko-KR')}<span style={{ fontSize: 14, fontWeight: 600, marginLeft: 3 }}>원</span></p>

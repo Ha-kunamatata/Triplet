@@ -8,7 +8,7 @@ export default function PageHeader({ title, subtitle, onBack, actions, noBorder 
       display: 'flex', alignItems: 'center', gap: 'var(--sp-2)',
       padding: 'var(--sp-3) var(--sp-4)',
       minHeight: 'var(--header-h)',
-      background: 'rgba(255,255,255,0.92)',
+      background: 'var(--c-surface-glass)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
       borderBottom: noBorder ? 'none' : '1px solid var(--c-border)',
       position: 'sticky', top: 0, zIndex: 50,

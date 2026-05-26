@@ -54,7 +54,7 @@ export default function BottomNav() {
           flexShrink: 0,
           height: 'calc(var(--bottom-nav-h) + var(--safe-bottom))',
           paddingBottom: 'var(--safe-bottom)',
-          background: isDark ? 'rgba(26,35,51,0.97)' : 'rgba(255,255,255,0.97)',
+          background: 'var(--c-surface-glass)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
           borderTop: '1px solid var(--c-border)',

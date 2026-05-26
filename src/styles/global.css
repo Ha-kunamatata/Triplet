@@ -16,6 +16,7 @@
   --c-bg:       #F1F5F9;
   --c-surface:  #FFFFFF;
   --c-surface2: #F8FAFC;
+  --c-surface-glass: rgba(255,255,255,0.92);
   --c-border:   #E2E8F0;
   --c-border2:  #CBD5E1;
 
@@ -548,6 +549,7 @@ img { max-width: 100%; display: block; }
     --c-bg:       #0B1120;
     --c-surface:  #1A2333;
     --c-surface2: #141C2B;
+    --c-surface-glass: rgba(26,35,51,0.92);
     --c-border:   #2A3547;
     --c-border2:  #3A4A61;
     --c-text-1:   #F1F5F9;
@@ -576,6 +578,7 @@ html.dark {
   --c-bg:       #0B1120;
   --c-surface:  #1A2333;
   --c-surface2: #141C2B;
+  --c-surface-glass: rgba(26,35,51,0.92);
   --c-border:   #2A3547;
   --c-border2:  #3A4A61;
   --c-text-1:   #F1F5F9;
@@ -603,6 +606,7 @@ html.light {
   --c-bg:       #F1F5F9;
   --c-surface:  #FFFFFF;
   --c-surface2: #F8FAFC;
+  --c-surface-glass: rgba(255,255,255,0.92);
   --c-border:   #E2E8F0;
   --c-border2:  #CBD5E1;
   --c-text-1:   #0F172A;

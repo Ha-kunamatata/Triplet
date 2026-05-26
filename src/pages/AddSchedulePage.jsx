@@ -515,7 +515,7 @@ function TypePicker({ onSelect, onBack }) {
     { type: ITEM_TYPES.MEMO,      desc: '자유 메모, 알림 사항' },
   ]
   return (
-    <div className="fullscreen-page" style={{ background: 'var(--c-bg)' }}>
+    <div className="fullscreen-page page-enter" style={{ background: 'var(--c-bg)' }}>
       <div style={{ borderBottom: '1px solid var(--c-border)' }}>
         <PageHeader title="무엇을 추가할까요?" onBack={onBack} noBorder />
       </div>

@@ -32,7 +32,7 @@ export default function RegisterPage() {
   ]
 
   return (
-    <div className="fullscreen-page" style={{ background: 'var(--c-surface)', display: 'flex', flexDirection: 'column' }}>
+    <div className="fullscreen-page page-enter" style={{ background: 'var(--c-surface)', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--c-border)' }}>
         <Link to="/login" style={{ width: 36, height: 36, borderRadius: 'var(--r-md)', background: 'var(--c-surface2)', border: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-2)' }}>
@@ -58,12 +58,14 @@ export default function RegisterPage() {
                 type={f.type} value={form[f.key]} onChange={set(f.key)}
                 placeholder={f.placeholder} required autoComplete={f.autoComplete}
                 style={inp}
+                onFocus={e => e.target.style.borderColor = 'var(--c-primary)'}
+                onBlur={e => e.target.style.borderColor = 'var(--c-border)'}
               />
             </div>
           ))}
 
           {error && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 'var(--r-md)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 'var(--r-md)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, animation: 'slideInUp 0.2s var(--ease) both' }}>
               <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--c-error)', flexShrink: 0 }}>error</span>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--c-error)' }}>{error}</p>
             </div>
@@ -92,4 +94,4 @@ export default function RegisterPage() {
 }
 
 const lbl = { fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-semibold)', color: 'var(--c-text-2)', display: 'block', marginBottom: 6 }
-const inp = { width: '100%', padding: '13px 16px', border: '1.5px solid var(--c-border)', borderRadius: 'var(--r-lg)', fontSize: 'var(--text-base)', outline: 'none', background: 'var(--c-surface2)', boxSizing: 'border-box', color: 'var(--c-text-1)', transition: 'border-color var(--t-fast)', display: 'block' }
+const inp = { width: '100%', padding: '13px 16px', border: '1.5px solid var(--c-border)', borderRadius: 'var(--r-lg)', fontSize: 'var(--text-base)', outline: 'none', background: 'var(--c-surface2)', boxSizing: 'border-box', color: 'var(--c-text-1)', transition: 'border-color var(--t-fast)', display: 'block', fontFamily: 'var(--font)' }

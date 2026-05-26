@@ -28,7 +28,7 @@ export default function ProfilePage() {
   }, {})
 
   return (
-      <div style={{ paddingBottom: 32 }}>
+      <div className="page-enter" style={{ paddingBottom: 32 }}>
       {/* ── User hero card ── */}
       <div style={{ margin: '16px', background: 'linear-gradient(160deg, #1E3A5F 0%, #2563EB 60%, #60A5FA 100%)', borderRadius: 'var(--r-2xl)', padding: '28px 24px', boxShadow: 'var(--shadow-lg)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
@@ -69,20 +69,20 @@ export default function ProfilePage() {
         <>
           <SectionTitle label="여행 통계" />
           <div style={{ margin: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <StatCard icon="payments" label="총 예산" value={totalBudget > 0 ? `${Math.round(totalBudget / 10000)}만원` : '-'} color="#3B82F6" bg="#EFF6FF" />
-            <StatCard icon="receipt_long" label="총 지출" value={totalSpent > 0 ? `${Math.round(totalSpent / 10000)}만원` : '-'} color="#F97316" bg="#FFF7ED" />
+            <StatCard icon="payments" label="총 예산" value={totalBudget > 0 ? `${Math.round(totalBudget / 10000)}만원` : '-'} color="#3B82F6" bg="rgba(59,130,246,0.1)" style={{ animation: 'slideInUp 0.28s var(--ease) 0.05s both' }} />
+            <StatCard icon="receipt_long" label="총 지출" value={totalSpent > 0 ? `${Math.round(totalSpent / 10000)}만원` : '-'} color="#F97316" bg="rgba(249,115,22,0.1)" style={{ animation: 'slideInUp 0.28s var(--ease) 0.1s both' }} />
           </div>
           {Object.keys(mostVisited).length > 0 && (
             <div style={{ margin: '10px 16px 0', background: 'var(--c-surface)', borderRadius: 'var(--r-xl)', padding: '14px 16px', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--c-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#10B981', fontVariationSettings: "'FILL' 1" }}>travel_explore</span>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--c-success)', fontVariationSettings: "'FILL' 1" }}>travel_explore</span>
                 <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>자주 방문한 여행지</p>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {Object.entries(mostVisited).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([dest, cnt]) => (
-                  <div key={dest} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#ECFDF5', padding: '5px 12px', borderRadius: 20 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#10B981' }}>{dest}</span>
-                    <span style={{ fontSize: 11, color: '#6EE7B7', fontWeight: 600 }}>{cnt}회</span>
+                  <div key={dest} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', padding: '5px 12px', borderRadius: 20 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-success)' }}>{dest}</span>
+                    <span style={{ fontSize: 11, color: 'var(--c-text-3)', fontWeight: 600 }}>{cnt}회</span>
                   </div>
                 ))}
               </div>
@@ -111,14 +111,14 @@ export default function ProfilePage() {
           onClick={logout}
           style={{
             width: '100%', padding: '15px',
-            background: '#FEF2F2', border: '1.5px solid #FECACA',
+            background: 'rgba(239,68,68,0.06)', border: '1.5px solid rgba(239,68,68,0.25)',
             borderRadius: 'var(--r-xl)', color: 'var(--c-error)',
             fontSize: 'var(--text-base)', fontWeight: 'var(--fw-bold)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             transition: 'all var(--t-fast)',
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--c-error)'; e.currentTarget.style.color = '#fff' }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = 'var(--c-error)' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--c-error)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--c-error)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.06)'; e.currentTarget.style.color = 'var(--c-error)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)' }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: 20 }}>logout</span>
           로그아웃
@@ -141,9 +141,9 @@ function HeroStat({ value, label }) {
   )
 }
 
-function StatCard({ icon, label, value, color, bg }) {
+function StatCard({ icon, label, value, color, bg, style: outerStyle }) {
   return (
-    <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-xl)', padding: '14px 16px', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-xl)', padding: '14px 16px', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 8, ...outerStyle }}>
       <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span className="material-symbols-outlined" style={{ fontSize: 18, color, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
       </div>

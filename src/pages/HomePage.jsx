@@ -88,19 +88,36 @@ export default function HomePage() {
 
         {/* 필터 탭 */}
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '10px 16px 12px', scrollbarWidth: 'none' }}>
-          {FILTERS.map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key)} style={{
-              padding: '7px 16px', borderRadius: 'var(--r-full)', flexShrink: 0,
-              background: filter === f.key ? 'var(--c-primary)' : 'var(--c-surface2)',
-              color: filter === f.key ? '#fff' : 'var(--c-text-2)',
-              border: 'none',
-              fontSize: 13, fontWeight: filter === f.key ? 700 : 500,
-              boxShadow: filter === f.key ? '0 2px 10px rgba(59,130,246,0.3)' : 'none',
-              transition: 'all 0.15s',
-            }}>
-              {f.label}
-            </button>
-          ))}
+          {FILTERS.map(f => {
+            const count = f.key === 'all' ? trips.length
+              : f.key === 'upcoming' ? upcoming.length
+              : f.key === 'ongoing' ? ongoing.length
+              : completed.length
+            return (
+              <button key={f.key} onClick={() => setFilter(f.key)} style={{
+                padding: '7px 14px', borderRadius: 'var(--r-full)', flexShrink: 0,
+                background: filter === f.key ? 'var(--c-primary)' : 'var(--c-surface2)',
+                color: filter === f.key ? '#fff' : 'var(--c-text-2)',
+                border: 'none',
+                fontSize: 13, fontWeight: filter === f.key ? 700 : 500,
+                boxShadow: filter === f.key ? '0 2px 10px rgba(59,130,246,0.3)' : 'none',
+                transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                {f.label}
+                {!loading && count > 0 && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, lineHeight: '17px', padding: '0 6px',
+                    borderRadius: 'var(--r-full)', minWidth: 17, textAlign: 'center',
+                    background: filter === f.key ? 'rgba(255,255,255,0.25)' : 'var(--c-border)',
+                    color: filter === f.key ? '#fff' : 'var(--c-text-3)',
+                  }}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -146,7 +163,11 @@ export default function HomePage() {
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: 14,
           }}>
-            {filtered.map(t => <TripCard key={t.id} trip={t} />)}
+            {filtered.map((t, idx) => (
+              <div key={t.id} style={{ animation: `slideInUp 0.28s var(--ease) ${idx * 0.05}s both` }}>
+                <TripCard trip={t} />
+              </div>
+            ))}
           </div>
         )}
 
@@ -158,8 +179,8 @@ export default function HomePage() {
               <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-text-1)' }}>공유받은 여행</p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {sharedTrips.map(t => (
-                <div key={t.id} style={{ position: 'relative' }}>
+              {sharedTrips.map((t, idx) => (
+                <div key={t.id} style={{ position: 'relative', animation: `slideInUp 0.28s var(--ease) ${idx * 0.05}s both` }}>
                   <div style={{ position: 'absolute', top: 12, right: 12, background: '#8B5CF6', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, zIndex: 1 }}>공유됨</div>
                   <TripCard trip={t} />
                 </div>

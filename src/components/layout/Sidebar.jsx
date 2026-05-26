@@ -44,14 +44,17 @@ export default function Sidebar() {
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 12px', borderRadius: 'var(--r-md)', marginBottom: 2,
-                background: active ? 'var(--c-primary-light)' : 'transparent',
+                background: active ? 'var(--c-primary-dim)' : 'transparent',
                 color: active ? 'var(--c-primary)' : 'var(--c-text-2)',
-                fontWeight: active ? 600 : 400,
+                fontWeight: active ? 700 : 400,
                 fontSize: 'var(--text-sm)', transition: 'all var(--t-fast)',
                 cursor: 'pointer', border: 'none',
+                borderLeft: active ? '3px solid var(--c-primary)' : '3px solid transparent',
               }}
+              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'var(--c-surface2)'; e.currentTarget.style.color = 'var(--c-text-1)' } }}
+              onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--c-text-2)' } }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20, fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}>{item.icon}</span>
+              <span className="material-symbols-outlined" style={{ fontSize: 20, fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0", transition: 'all 0.15s' }}>{item.icon}</span>
               {item.label}
             </button>
           )

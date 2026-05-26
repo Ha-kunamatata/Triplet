@@ -16,6 +16,7 @@
   --c-bg:       #F1F5F9;
   --c-surface:  #FFFFFF;
   --c-surface2: #F8FAFC;
+  --c-surface-glass: rgba(255,255,255,0.92);
   --c-border:   #E2E8F0;
   --c-border2:  #CBD5E1;
 
@@ -297,7 +298,7 @@ img { max-width: 100%; display: block; }
 .btn-ghost { background: transparent; color: var(--c-text-2); }
 .btn-ghost:hover { background: var(--c-surface2); color: var(--c-text-1); }
 
-.btn-danger { background: #FEF2F2; color: var(--c-error); }
+.btn-danger { background: rgba(239,68,68,0.06); color: var(--c-error); }
 .btn-danger:hover { background: var(--c-error); color: #fff; }
 
 .btn-sm { height: 34px; padding: 0 var(--sp-3); font-size: var(--text-xs); }
@@ -408,9 +409,9 @@ img { max-width: 100%; display: block; }
   font-weight: var(--fw-semibold);
 }
 .badge-blue   { background: var(--c-primary-light); color: var(--c-primary); }
-.badge-green  { background: #ECFDF5; color: var(--c-success); }
-.badge-gray   { background: var(--c-surface2); color: var(--c-text-2); }
-.badge-orange { background: #FFF7ED; color: var(--c-accent); }
+.badge-green  { background: rgba(16,185,129,0.1);  color: var(--c-success); }
+.badge-gray   { background: var(--c-surface2);     color: var(--c-text-2); }
+.badge-orange { background: rgba(249,115,22,0.1);  color: var(--c-accent); }
 
 /* ═══════════════════════════════════════════
    Divider
@@ -548,6 +549,7 @@ img { max-width: 100%; display: block; }
     --c-bg:       #0B1120;
     --c-surface:  #1A2333;
     --c-surface2: #141C2B;
+    --c-surface-glass: rgba(26,35,51,0.92);
     --c-border:   #2A3547;
     --c-border2:  #3A4A61;
     --c-text-1:   #F1F5F9;
@@ -576,6 +578,7 @@ html.dark {
   --c-bg:       #0B1120;
   --c-surface:  #1A2333;
   --c-surface2: #141C2B;
+  --c-surface-glass: rgba(26,35,51,0.92);
   --c-border:   #2A3547;
   --c-border2:  #3A4A61;
   --c-text-1:   #F1F5F9;
@@ -603,6 +606,7 @@ html.light {
   --c-bg:       #F1F5F9;
   --c-surface:  #FFFFFF;
   --c-surface2: #F8FAFC;
+  --c-surface-glass: rgba(255,255,255,0.92);
   --c-border:   #E2E8F0;
   --c-border2:  #CBD5E1;
   --c-text-1:   #0F172A;
@@ -743,6 +747,15 @@ html.light {
 .animate-pop-in   { animation: popIn 0.35s var(--ease) both; }
 .animate-count-up { animation: countUp 0.4s var(--ease) both; }
 
+@keyframes slideDown {
+  from { transform: translateY(0); }
+  to   { transform: translateY(105%); }
+}
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
 /* Toss 스타일 구분선 */
 .toss-divider {
   height: 8px;
@@ -787,6 +800,12 @@ html.light {
   outline: 2px solid var(--c-primary);
   outline-offset: 2px;
   border-radius: 4px;
+}
+/* Native input elements: override outline with border-color (inline styles use outline:none) */
+input:focus, textarea:focus, select:focus {
+  border-color: var(--c-primary) !important;
+  box-shadow: 0 0 0 3px var(--c-primary-dim);
+  outline: none;
 }
 
 /* ─ 인터랙티브 요소 공통 피드백 ─ */

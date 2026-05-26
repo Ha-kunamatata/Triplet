@@ -515,12 +515,12 @@ function TypePicker({ onSelect, onBack }) {
     { type: ITEM_TYPES.MEMO,      desc: '자유 메모, 알림 사항' },
   ]
   return (
-    <div className="fullscreen-page" style={{ background: 'var(--c-bg)' }}>
+    <div className="fullscreen-page page-enter" style={{ background: 'var(--c-bg)' }}>
       <div style={{ borderBottom: '1px solid var(--c-border)' }}>
         <PageHeader title="무엇을 추가할까요?" onBack={onBack} noBorder />
       </div>
       <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {types.map(({ type, desc }) => {
+        {types.map(({ type, desc }, idx) => {
           const meta = ITEM_TYPE_META[type]
           return (
             <button key={type} onClick={() => onSelect(type)}
@@ -530,6 +530,7 @@ function TypePicker({ onSelect, onBack }) {
                 background: 'var(--c-surface)', border: `1.5px solid ${meta.color}30`,
                 borderRadius: 16, textAlign: 'left', transition: 'all 0.15s',
                 boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+                animation: `slideInUp 0.28s var(--ease) ${idx * 0.055}s both`,
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = meta.color; e.currentTarget.style.boxShadow = `0 4px 16px ${meta.color}30` }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = `${meta.color}30`; e.currentTarget.style.boxShadow = '0 2px 8px rgba(15,23,42,0.06)' }}
@@ -670,7 +671,7 @@ export default function AddSchedulePage() {
   const accent = meta.color ?? 'var(--c-primary)'
 
   return (
-    <div className="fullscreen-page" style={{ background: 'var(--c-bg)' }}>
+    <div className="fullscreen-page page-enter" style={{ background: 'var(--c-bg)' }}>
       <div style={{ background: `linear-gradient(135deg,${accent}20,${accent}08)`, borderBottom: `3px solid ${accent}` }}>
         <PageHeader
           title={isEdit ? `${meta.label} 수정` : `${meta.label} 추가`}

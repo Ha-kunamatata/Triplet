@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { getTrip, getSchedules, addSchedule, deleteTrip, deleteSchedule, updateChecklist, getTripItems, deleteTripItem, updateTripBudgetData, updateTrip, enableSharing, disableSharing } from '../firebase/firestore'
+import { getTrip, addSchedule, addTripItem, deleteTrip, deleteSchedule, updateChecklist, deleteTripItem, updateTripBudgetData, updateTrip, enableSharing, disableSharing, subscribeToSchedules, subscribeToTripItems } from '../firebase/firestore'
 import { generateDateRange, formatDisplayDate, formatShortDate, getDDay, calcTripStatus } from '../utils/dateUtils'
 import { getItemSortTime } from '../utils/tripItemUtils'
 import DayTab from '../components/schedule/DayTab'
@@ -9,7 +9,7 @@ import TripMap from '../components/maps/TripMap'
 import { ScheduleSkeleton } from '../components/common/LoadingSpinner'
 import EmptyState from '../components/common/EmptyState'
 import Modal from '../components/common/Modal'
-import Toast from '../components/common/Toast'
+import { useToast } from '../components/common/Toast'
 import { SCHEDULE_CATEGORIES, TRIP_STATUS, CHECKLIST_CATEGORIES, DEFAULT_CHECKLIST, ITEM_TYPES, ITEM_TYPE_META, TRANSPORT_MODES, TRIP_EMOJIS } from '../constants'
 import { formatDuration, getFlightDuration } from '../utils/timezoneUtils'
 import {
@@ -40,7 +40,7 @@ export default function TripDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [showEditSheet, setShowEditSheet] = useState(false)
-  const [toast, setToast] = useState(null)
+  const { show: showToast, ToastEl } = useToast()
   const [checklist, setChecklist] = useState([])
   const [newItem, setNewItem] = useState('')
   const [activeId, setActiveId] = useState(null)
@@ -64,24 +64,22 @@ export default function TripDetailPage() {
   )
 
   useEffect(() => {
-    Promise.allSettled([getTrip(tripId), getSchedules(tripId), getTripItems(tripId)])
-      .then(([tRes, sRes, iRes]) => {
-        const t = tRes.status === 'fulfilled' ? tRes.value : null
-        const s = sRes.status === 'fulfilled' ? sRes.value : []
-        const items = iRes.status === 'fulfilled' ? iRes.value : []
+    let unsubSchedules, unsubItems
+    getTrip(tripId)
+      .then(t => {
+        if (!t) return
         setTrip(t)
-        setSchedules(s)
-        setTripItems(items)
-        if (t) {
-          setSelectedDate(t.startDate)
-          setChecklist(t.checklist ?? DEFAULT_CHECKLIST)
-          setBudget(t.budget ?? 0)
-          setExpenses(t.expenses ?? [])
-          setCategoryBudgets(t.categoryBudgets ?? {})
-          setDayOrders(t.dayOrders ?? {})
-        }
+        setSelectedDate(t.startDate)
+        setChecklist(t.checklist ?? DEFAULT_CHECKLIST)
+        setBudget(t.budget ?? 0)
+        setExpenses(t.expenses ?? [])
+        setCategoryBudgets(t.categoryBudgets ?? {})
+        setDayOrders(t.dayOrders ?? {})
+        unsubSchedules = subscribeToSchedules(tripId, setSchedules)
+        unsubItems     = subscribeToTripItems(tripId, setTripItems)
       })
       .finally(() => setLoading(false))
+    return () => { unsubSchedules?.(); unsubItems?.() }
   }, [tripId])
 
   const handleCombinedDragEnd = useCallback(({ active, over }) => {
@@ -188,9 +186,18 @@ export default function TripDetailPage() {
   const miniMapItems = dayCombined.filter(x => x.lat && x.lng)
 
   async function handleDeleteSchedule(id) {
+    const deleted = schedules.find(s => s.id === id)
     await deleteSchedule(id)
-    setSchedules(prev => prev.filter(s => s.id !== id))
-    setToast({ message: '일정이 삭제되었습니다.' })
+    showToast('일정이 삭제되었습니다.', {
+      action: '취소',
+      duration: 4000,
+      onAction: async () => {
+        if (deleted) {
+          const { id: _, createdAt: __, ...data } = deleted
+          await addSchedule(tripId, data)
+        }
+      },
+    })
   }
 
   async function handleKmlImport(places) {
@@ -212,11 +219,11 @@ export default function TripDetailPage() {
       added.push({ id, title: place.name, date: selectedDate, startTime: '', endTime: '', category: 'attraction', memo: place.description || '', cost: '', place: place.name, placeAddress: '', lat: place.lat, lng: place.lng })
     }
     setSchedules(prev => [...prev, ...added])
-    setToast({ message: `${places.length}곳이 추가되었습니다.` })
+    showToast(`${places.length}곳이 추가되었습니다.`, { type: 'success' })
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--c-bg)', paddingBottom: 100 }}>
+    <div className="page-enter" style={{ minHeight: '100dvh', background: 'var(--c-bg)', paddingBottom: 100 }}>
 
       {/* ══ Hero ══ */}
       <div style={{ height: 270, background: `linear-gradient(160deg,${bg1},${bg2})`, position: 'relative', overflow: 'hidden' }}>
@@ -326,7 +333,8 @@ export default function TripDetailPage() {
         )}
       </div>
 
-      {/* ══ Content ══ */}
+      {/* ══ Content (keyed for enter animation on view switch) ══ */}
+      <div key={viewMode} style={{ animation: 'slideInUp 0.2s var(--ease) both' }}>
       {viewMode === 'timeline' ? (
         <>
           {selectedDate && (() => {
@@ -347,7 +355,7 @@ export default function TripDetailPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button
                     onClick={() => setShowKmlImport(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, background: 'linear-gradient(135deg,#EFF6FF,#F0FDF4)', border: '1px solid #BFDBFE', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#1D4ED8' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, background: 'var(--c-primary-light)', border: '1px solid var(--c-primary-dim)', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--c-primary)' }}
                   >
                     <span style={{ fontSize: 14 }}>🗺️</span>내 지도
                   </button>
@@ -377,7 +385,7 @@ export default function TripDetailPage() {
                     const next = dayCombined[idx + 1]
                     const isLast = idx === dayCombined.length - 1
                     return (
-                      <div key={item.id}>
+                      <div key={item.id} style={{ animation: `slideInUp 0.28s var(--ease) ${idx * 0.045}s both` }}>
                         <SortableCombinedItem
                           item={item}
                           number={idx + 1}
@@ -390,7 +398,14 @@ export default function TripDetailPage() {
                             : navigate(`/trips/${tripId}/schedule/${item.id}/edit`)
                           }
                           onDelete={item._type === 'item'
-                            ? async () => { await deleteTripItem(item.id); setTripItems(prev => prev.filter(i => i.id !== item.id)); setToast({ message: '삭제되었습니다.' }) }
+                            ? async () => {
+                                const deleted = item
+                                await deleteTripItem(item.id)
+                                showToast('삭제되었습니다.', { action: '취소', duration: 4000, onAction: async () => {
+                                  const { id: _, createdAt: __, _type: ___, ...data } = deleted
+                                  await addTripItem(tripId, data)
+                                }})
+                              }
                             : () => handleDeleteSchedule(item.id)
                           }
                         />
@@ -434,7 +449,7 @@ export default function TripDetailPage() {
               expenses:        newExpenses,
               categoryBudgets: newCatBudgets,
             })
-            setToast({ message: '저장되었습니다.' })
+            showToast('저장되었습니다.', { type: 'success' })
           }}
         />
       ) : viewMode === 'checklist' ? (
@@ -512,6 +527,7 @@ export default function TripDetailPage() {
           )}
         </div>
       )}
+      </div>{/* end keyed content wrapper */}
 
       {/* ══ FAB ══ */}
       <button
@@ -569,7 +585,7 @@ export default function TripDetailPage() {
             </button>
             <button onClick={() => { setShowMenu(false); setShowDeleteModal(true) }}
               style={{ width: '100%', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, background: 'transparent', cursor: 'pointer' }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(239,68,68,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--c-error)', fontVariationSettings: "'FILL' 1" }}>delete</span>
               </div>
               <div style={{ textAlign: 'left' }}>
@@ -592,12 +608,12 @@ export default function TripDetailPage() {
             setTrip(prev => ({ ...prev, ...data }))
             if (data.startDate) setSelectedDate(data.startDate)
             setShowEditSheet(false)
-            setToast({ message: '여행 정보가 수정되었습니다.' })
+            showToast('여행 정보가 수정되었습니다.', { type: 'success' })
           }}
         />
       )}
 
-      {toast && <Toast message={toast.message} onClose={() => setToast(null)} />}
+      {ToastEl}
     </div>
   )
 }
@@ -728,7 +744,7 @@ function TripItemCard({ item, onEdit, onDelete }) {
             {[['edit', false], ['delete', true]].map(([icon, danger]) => (
               <button key={icon} onClick={icon === 'edit' ? onEdit : onDelete}
                 style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', transition: 'all 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = danger ? '#FEF2F2' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.08)' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--c-text-3)' }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{icon}</span>
@@ -890,7 +906,7 @@ function CombinedTimelineItem({ item, number, isLast, onEdit, onDelete, dragHand
                 {[['edit', false], ['delete', true]].map(([ico, danger]) => (
                   <button key={ico} onClick={ico === 'edit' ? onEdit : onDelete}
                     style={{ width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', transition: 'all var(--t-fast)' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = danger ? '#FEF2F2' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.08)' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--c-text-3)' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{ico}</span>
                   </button>
@@ -951,7 +967,7 @@ function MiniMapOverlay({ items, activeId }) {
       position: 'fixed',
       bottom: 'calc(var(--bottom-nav-h) + var(--safe-bottom) + 76px)',
       right: 14, width: W,
-      background: 'rgba(255,255,255,0.96)',
+      background: 'var(--c-surface-glass)',
       borderRadius: 14,
       boxShadow: '0 4px 18px rgba(0,0,0,0.18)',
       border: '1px solid var(--c-border)',
@@ -1054,10 +1070,10 @@ function ChecklistView({ checklist, newItem, onNewItemChange, onAdd, onToggle, o
       <div style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-xl)', padding: '16px 18px', marginBottom: 12, boxShadow: 'var(--shadow-xs)', border: '1px solid var(--c-border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-text-1)' }}>준비 현황</p>
-          <span style={{ fontSize: 22, fontWeight: 900, color: pct === 100 ? '#10B981' : 'var(--c-primary)' }}>{pct}%</span>
+          <span style={{ fontSize: 22, fontWeight: 900, color: pct === 100 ? 'var(--c-success)' : 'var(--c-primary)' }}>{pct}%</span>
         </div>
         <div style={{ height: 8, background: 'var(--c-border)', borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? '#10B981' : 'var(--c-primary)', borderRadius: 4, transition: 'width 0.5s ease' }} />
+          <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? 'var(--c-success)' : 'var(--c-primary)', borderRadius: 4, transition: 'width 0.5s ease' }} />
         </div>
         <p style={{ fontSize: 12, color: 'var(--c-text-3)', marginTop: 6 }}>{done} / {total}개 완료</p>
       </div>
@@ -1078,8 +1094,8 @@ function ChecklistView({ checklist, newItem, onNewItemChange, onAdd, onToggle, o
                   onClick={() => onToggle(item.id)}
                   style={{
                     width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                    border: `2px solid ${item.checked ? '#10B981' : 'var(--c-border2)'}`,
-                    background: item.checked ? '#10B981' : 'transparent',
+                    border: `2px solid ${item.checked ? 'var(--c-success)' : 'var(--c-border2)'}`,
+                    background: item.checked ? 'var(--c-success)' : 'transparent',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     transition: 'all var(--t-fast)',
                   }}
@@ -1194,7 +1210,7 @@ function TimelineItem({ schedule, isLast, onEdit, onDelete, dragHandleProps }) {
                   <button key={icon}
                     onClick={icon === 'edit' ? onEdit : onDelete}
                     style={{ width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', transition: 'all var(--t-fast)' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = danger ? '#FEF2F2' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.08)' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--c-text-3)' }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{icon}</span>
@@ -1236,7 +1252,7 @@ function StatItem({ icon, label, value, color, divider }) {
 const floatBtn = { width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.32)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.20)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background var(--t-fast)' }
 
 function getCoverGradient(emoji) {
-  const m = { '✈️':['#60A5FA','#2563EB'],'🗺️':['#34D399','#059669'],'🏖️':['#FBBF24','#F97316'],'🏔️':['#6EE7B7','#10B981'],'🌆':['#A78BFA','#7C3AED'],'🌸':['#F9A8D4','#EC4899'],'🍜':['#FCD34D','#D97706'],'🎡':['#67E8F9','#0891B2'],'🏰':['#D4A574','#92400E'],'🌅':['#FCA5A5','#EF4444'],'🎭':['#C4B5FD','#8B5CF6'],'🚂':['#94A3B8','#475569'] }
+  const m = { '✈️':['#60A5FA','#2563EB'],'🗺️':['#34D399','#059669'],'🏖️':['#FBBF24','#F97316'],'🏔️':['#6EE7B7','var(--c-success)'],'🌆':['#A78BFA','#7C3AED'],'🌸':['#F9A8D4','#EC4899'],'🍜':['#FCD34D','#D97706'],'🎡':['#67E8F9','#0891B2'],'🏰':['#D4A574','#92400E'],'🌅':['#FCA5A5','#EF4444'],'🎭':['#C4B5FD','#8B5CF6'],'🚂':['#94A3B8','#475569'] }
   return m[emoji] ?? ['#93C5FD','#3B82F6']
 }
 
@@ -1285,7 +1301,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
   const totalSpent = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0)
   const pct        = budget > 0 ? Math.min(100, Math.round((totalSpent / budget) * 100)) : 0
   const overBudget = totalSpent > budget && budget > 0
-  const barColor   = pct >= 100 ? '#EF4444' : pct >= 80 ? '#F59E0B' : '#10B981'
+  const barColor   = pct >= 100 ? '#EF4444' : pct >= 80 ? '#F59E0B' : 'var(--c-success)'
 
   const integratedCostByCategory = {}
   schedules.forEach(s => {
@@ -1584,7 +1600,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
               <div key={cat.key} onClick={() => { if (!isEditing) { setEditingCatLimit(cat.key); setCatLimitInput(limit ? String(limit) : '') } }}
                 style={{ background: 'var(--c-surface)', padding: '12px 14px', cursor: 'pointer', position: 'relative', borderLeft: `3px solid ${combined > 0 ? cat.color : 'var(--c-border2)'}`, transition: 'background 0.15s' }}>
                 {barOver && (
-                  <div style={{ position: 'absolute', top: 8, right: 8, width: 7, height: 7, borderRadius: '50%', background: '#EF4444' }} />
+                  <div style={{ position: 'absolute', top: 8, right: 8, width: 7, height: 7, borderRadius: '50%', background: 'var(--c-error)' }} />
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
                   <div style={{ width: 28, height: 28, borderRadius: 8, background: combined > 0 ? cat.color + '18' : 'var(--c-surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1651,7 +1667,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#F97316', fontVariationSettings: "'FILL' 1" }}>currency_exchange</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text-2)' }}>환율 계산기</span>
-            {rateNum > 0 && <span style={{ fontSize: 11, color: '#F97316', background: '#FFF7ED', padding: '1px 7px', borderRadius: 4, fontWeight: 600 }}>1{currency} = {rateNum.toLocaleString('ko-KR')}원</span>}
+            {rateNum > 0 && <span style={{ fontSize: 11, color: '#F97316', background: 'rgba(249,115,22,0.08)', padding: '1px 7px', borderRadius: 4, fontWeight: 600 }}>1{currency} = {rateNum.toLocaleString('ko-KR')}원</span>}
           </div>
           <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--c-text-3)', transition: 'transform 0.2s', transform: showCurrency ? 'rotate(180deg)' : 'none' }}>expand_more</span>
         </button>
@@ -1683,10 +1699,10 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
             {rateNum > 0 && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <input type="number" value={calcAmt} onChange={e => setCalcAmt(e.target.value)} placeholder={`금액 (${currency})`}
-                  style={{ flex: 1, height: 44, padding: '0 12px', border: '1.5px solid #F97316', borderRadius: 10, fontSize: 15, background: '#FFF7ED', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none' }} />
+                  style={{ flex: 1, height: 44, padding: '0 12px', border: '1.5px solid #F97316', borderRadius: 10, fontSize: 15, background: 'rgba(249,115,22,0.08)', color: 'var(--c-text-1)', fontFamily: 'var(--font)', outline: 'none' }} />
                 <span className="material-symbols-outlined" style={{ color: 'var(--c-text-3)', fontSize: 18 }}>arrow_forward</span>
-                <div style={{ flex: 1, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: calcResult ? '#ECFDF5' : 'var(--c-surface2)', borderRadius: 10, border: `1.5px solid ${calcResult ? '#10B981' : 'var(--c-border)'}` }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: calcResult ? '#10B981' : 'var(--c-text-3)' }}>
+                <div style={{ flex: 1, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: calcResult ? 'rgba(16,185,129,0.08)' : 'var(--c-surface2)', borderRadius: 10, border: `1.5px solid ${calcResult ? 'var(--c-success)' : 'var(--c-border)'}` }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: calcResult ? 'var(--c-success)' : 'var(--c-text-3)' }}>
                     {calcResult ? `${calcResult.toLocaleString('ko-KR')}원` : '?원'}
                   </span>
                 </div>
@@ -1807,7 +1823,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
                   <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-text-1)' }}>{Number(exp.amount).toLocaleString('ko-KR')}원</p>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => startEditExpense(exp)} style={{ fontSize: 11, color: 'var(--c-primary)', background: 'var(--c-primary-light)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>수정</button>
-                    <button onClick={() => removeExpense(exp.id)} style={{ fontSize: 11, color: '#EF4444', background: '#FEF2F2', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>삭제</button>
+                    <button onClick={() => removeExpense(exp.id)} style={{ fontSize: 11, color: '#EF4444', background: 'rgba(239,68,68,0.08)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>삭제</button>
                   </div>
                 </div>
               </div>
@@ -1846,8 +1862,8 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
             const dayAvgBudget = budget > 0 ? Math.round(budget / dates.length) : 0
             const dayOver = dayAvgBudget > 0 && dayTotal > dayAvgBudget
             return (
-              <div key={date} style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: `1px solid ${dayOver ? '#FECACA' : 'var(--c-border)'}`, overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-                <div style={{ padding: '12px 16px', background: dayOver ? '#FFF5F5' : 'var(--c-surface2)', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={date} style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: `1px solid ${dayOver ? 'rgba(239,68,68,0.2)' : 'var(--c-border)'}`, overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ padding: '12px 16px', background: dayOver ? 'rgba(239,68,68,0.06)' : 'var(--c-surface2)', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--c-primary-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--c-primary)' }}>D{dayIdx + 1}</span>
@@ -1910,7 +1926,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
 /* ── 여행 수정 시트 ── */
 const TRIP_COVER_GRADIENTS = {
   '✈️':['#60A5FA','#2563EB'],'🗺️':['#34D399','#059669'],'🏖️':['#FBBF24','#F97316'],
-  '🏔️':['#6EE7B7','#10B981'],'🌆':['#A78BFA','#7C3AED'],'🌸':['#F9A8D4','#EC4899'],
+  '🏔️':['#6EE7B7','var(--c-success)'],'🌆':['#A78BFA','#7C3AED'],'🌸':['#F9A8D4','#EC4899'],
   '🍜':['#FCD34D','#D97706'],'🎡':['#67E8F9','#0891B2'],'🏰':['#D4A574','#92400E'],
   '🌅':['#FCA5A5','#EF4444'],'🎭':['#C4B5FD','#8B5CF6'],'🚂':['#94A3B8','#475569'],
 }
@@ -2111,7 +2127,7 @@ function ShareModal({ trip, tripId, onClose, onTripUpdate }) {
                   onClick={copyLink}
                   style={{
                     padding: '0 18px', borderRadius: 12, flexShrink: 0,
-                    background: copied ? '#10B981' : 'var(--c-primary)',
+                    background: copied ? 'var(--c-success)' : 'var(--c-primary)',
                     color: '#fff', fontSize: 13, fontWeight: 700,
                     transition: 'background 0.2s',
                   }}
@@ -2127,9 +2143,9 @@ function ShareModal({ trip, tripId, onClose, onTripUpdate }) {
 
           {/* 멤버 수 안내 */}
           {shareEnabled && memberCount > 0 && (
-            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#10B981' }}>group</span>
-              <p style={{ fontSize: 13, color: '#166534', fontWeight: 600 }}>현재 {memberCount}명이 이 여행을 공유 중입니다.</p>
+            <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 12, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--c-success,#10B981)' }}>group</span>
+              <p style={{ fontSize: 13, color: 'var(--c-text)', fontWeight: 600 }}>현재 {memberCount}명이 이 여행을 공유 중입니다.</p>
             </div>
           )}
         </div>

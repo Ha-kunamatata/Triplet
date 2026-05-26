@@ -52,9 +52,9 @@ export const DIARY_WEATHERS = [
 ]
 
 export const TRIP_STATUS = {
-  upcoming:  { label: '예정',     color: '#3B82F6', bg: '#EFF6FF' },
-  ongoing:   { label: '여행 중',  color: '#10B981', bg: '#ECFDF5' },
-  completed: { label: '완료',     color: '#94A3B8', bg: '#F1F5F9' },
+  upcoming:  { label: '예정',     color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
+  ongoing:   { label: '여행 중',  color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
+  completed: { label: '완료',     color: '#94A3B8', bg: 'rgba(100,116,139,0.1)' },
 }
 
 // ── TripItem 타입 시스템 ──────────────────────────────────────────
@@ -68,11 +68,11 @@ export const ITEM_TYPES = {
 }
 
 export const ITEM_TYPE_META = {
-  FLIGHT:    { label: '항공편',   icon: 'flight',          color: '#D4537E', bg: '#FDF2F8' },
-  STAY:      { label: '숙소',     icon: 'hotel',           color: '#378ADD', bg: '#EFF6FF' },
-  PLACE:     { label: '장소',     icon: 'location_on',     color: '#1D9E75', bg: '#ECFDF5' },
-  TRANSPORT: { label: '이동',     icon: 'directions_car',  color: '#7C3AED', bg: '#F5F3FF' },
-  MEMO:      { label: '메모',     icon: 'sticky_note_2',   color: '#F59E0B', bg: '#FFFBEB' },
+  FLIGHT:    { label: '항공편',   icon: 'flight',          color: '#D4537E', bg: 'rgba(212,83,126,0.1)' },
+  STAY:      { label: '숙소',     icon: 'hotel',           color: '#378ADD', bg: 'rgba(55,138,221,0.1)' },
+  PLACE:     { label: '장소',     icon: 'location_on',     color: '#1D9E75', bg: 'rgba(29,158,117,0.1)' },
+  TRANSPORT: { label: '이동',     icon: 'directions_car',  color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' },
+  MEMO:      { label: '메모',     icon: 'sticky_note_2',   color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' },
 }
 
 export const TRANSPORT_MODES = [

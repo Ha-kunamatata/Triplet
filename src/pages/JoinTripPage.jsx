@@ -58,7 +58,7 @@ export default function JoinTripPage() {
   }[status] ?? { icon: '✈️', title: '처리 중…', sub: '', spin: true }
 
   return (
-    <div className="fullscreen-page" style={{
+    <div className="fullscreen-page page-enter" style={{
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       background: 'var(--c-surface)', padding: 24, gap: 20,

@@ -166,7 +166,7 @@ export default function KmlImportSheet({ selectedDate, onClose, onImport }) {
               </button>
 
               {error && (
-                <div style={{ marginTop: 12, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '12px 14px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ marginTop: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, padding: '12px 14px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--c-error)', flexShrink: 0, marginTop: 1 }}>error</span>
                   <p style={{ fontSize: 13, color: 'var(--c-error)', lineHeight: 1.55 }}>{error}</p>
                 </div>

@@ -165,7 +165,7 @@ export default function CreateTripPage() {
               </div>
             )}
             {form.startDate && form.endDate && form.endDate < form.startDate && (
-              <div style={{ marginTop: 10, display: 'flex', gap: 6, padding: '10px 14px', background: '#FEF2F2', borderRadius: 'var(--r-lg)' }}>
+              <div style={{ marginTop: 10, display: 'flex', gap: 6, padding: '10px 14px', background: 'rgba(239,68,68,0.06)', borderRadius: 'var(--r-lg)' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--c-error)' }}>error</span>
                 <span style={{ fontSize: 'var(--text-sm)', color: 'var(--c-error)' }}>귀국일은 출발일 이후여야 합니다</span>
               </div>
@@ -240,7 +240,7 @@ export default function CreateTripPage() {
           </Section>
 
           {error && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 'var(--r-lg)', padding: '12px 16px', display: 'flex', gap: 8 }}>
+            <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 'var(--r-lg)', padding: '12px 16px', display: 'flex', gap: 8 }}>
               <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--c-error)' }}>error</span>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--c-error)' }}>{error}</p>
             </div>

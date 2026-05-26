@@ -583,7 +583,7 @@ export default function TripDetailPage() {
             </button>
             <button onClick={() => { setShowMenu(false); setShowDeleteModal(true) }}
               style={{ width: '100%', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, background: 'transparent', cursor: 'pointer' }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(239,68,68,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--c-error)', fontVariationSettings: "'FILL' 1" }}>delete</span>
               </div>
               <div style={{ textAlign: 'left' }}>
@@ -742,7 +742,7 @@ function TripItemCard({ item, onEdit, onDelete }) {
             {[['edit', false], ['delete', true]].map(([icon, danger]) => (
               <button key={icon} onClick={icon === 'edit' ? onEdit : onDelete}
                 style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', transition: 'all 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = danger ? '#FEF2F2' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.08)' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--c-text-3)' }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{icon}</span>
@@ -904,7 +904,7 @@ function CombinedTimelineItem({ item, number, isLast, onEdit, onDelete, dragHand
                 {[['edit', false], ['delete', true]].map(([ico, danger]) => (
                   <button key={ico} onClick={ico === 'edit' ? onEdit : onDelete}
                     style={{ width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', transition: 'all var(--t-fast)' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = danger ? '#FEF2F2' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.08)' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--c-text-3)' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{ico}</span>
                   </button>
@@ -1208,7 +1208,7 @@ function TimelineItem({ schedule, isLast, onEdit, onDelete, dragHandleProps }) {
                   <button key={icon}
                     onClick={icon === 'edit' ? onEdit : onDelete}
                     style={{ width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', transition: 'all var(--t-fast)' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = danger ? '#FEF2F2' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.08)' : 'var(--c-primary-light)'; e.currentTarget.style.color = danger ? 'var(--c-error)' : 'var(--c-primary)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--c-text-3)' }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{icon}</span>
@@ -1821,7 +1821,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
                   <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-text-1)' }}>{Number(exp.amount).toLocaleString('ko-KR')}원</p>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => startEditExpense(exp)} style={{ fontSize: 11, color: 'var(--c-primary)', background: 'var(--c-primary-light)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>수정</button>
-                    <button onClick={() => removeExpense(exp.id)} style={{ fontSize: 11, color: '#EF4444', background: '#FEF2F2', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>삭제</button>
+                    <button onClick={() => removeExpense(exp.id)} style={{ fontSize: 11, color: '#EF4444', background: 'rgba(239,68,68,0.08)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>삭제</button>
                   </div>
                 </div>
               </div>
@@ -1860,7 +1860,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
             const dayAvgBudget = budget > 0 ? Math.round(budget / dates.length) : 0
             const dayOver = dayAvgBudget > 0 && dayTotal > dayAvgBudget
             return (
-              <div key={date} style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: `1px solid ${dayOver ? '#FECACA' : 'var(--c-border)'}`, overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+              <div key={date} style={{ background: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: `1px solid ${dayOver ? 'rgba(239,68,68,0.2)' : 'var(--c-border)'}`, overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                 <div style={{ padding: '12px 16px', background: dayOver ? '#FFF5F5' : 'var(--c-surface2)', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--c-primary-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

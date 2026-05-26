@@ -76,7 +76,7 @@ export default function ScheduleItem({ schedule, onEdit, onDelete }) {
         <button
           onClick={onDelete}
           style={{ width: 30, height: 30, borderRadius: 'var(--r-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text-3)', transition: 'background var(--t-fast), color var(--t-fast)' }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = 'var(--c-error)' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = 'var(--c-error)' }}
           onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--c-text-3)' }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: 17 }}>delete</span>

@@ -278,7 +278,7 @@ export default function TripMap({
           <span className="material-symbols-outlined" style={{ fontSize:32, color:'var(--c-primary)', fontVariationSettings:"'FILL' 1" }}>location_off</span>
         </div>
         <p style={{ fontSize:17, fontWeight:800, color:'var(--c-text)' }}>지도에 표시할 위치가 없어요</p>
-        <p style={{ fontSize:13, color:'var(--c-text2)', lineHeight:1.7 }}>일정 추가 시 장소를 검색하면<br/>지도에 경로가 표시됩니다</p>
+        <p style={{ fontSize:13, color:'var(--c-text-3)', lineHeight:1.7 }}>일정 추가 시 장소를 검색하면<br/>지도에 경로가 표시됩니다</p>
       </div>
     )
   }
@@ -305,12 +305,12 @@ export default function TripMap({
             {/* Day legend */}
             {showAll && dates.length > 0 && (
               <div style={{ background:'var(--c-surface-glass)', backdropFilter:'blur(14px)', borderRadius:14, padding:'8px 12px', boxShadow:'0 2px 16px rgba(0,0,0,0.14)', maxHeight:180, overflowY:'auto' }}>
-                <p style={{ fontSize:10, fontWeight:700, color:'var(--c-text2)', textTransform:'uppercase', letterSpacing:0.6, marginBottom:6 }}>Day 색상</p>
+                <p style={{ fontSize:10, fontWeight:700, color:'var(--c-text-3)', textTransform:'uppercase', letterSpacing:0.6, marginBottom:6 }}>Day 색상</p>
                 {dates.map((d, i) => (
                   <div key={d} style={{ display:'flex', alignItems:'center', gap:7, padding:'2px 0' }}>
                     <div style={{ width:10, height:10, borderRadius:'50%', background:DAY_COLORS[i % DAY_COLORS.length], flexShrink:0 }} />
                     <span style={{ fontSize:11, color:'var(--c-text)', fontWeight:700 }}>Day {i+1}</span>
-                    <span style={{ fontSize:10, color:'var(--c-text2)' }}>{d.slice(5).replace('-','/')}</span>
+                    <span style={{ fontSize:10, color:'var(--c-text-3)' }}>{d.slice(5).replace('-','/')}</span>
                   </div>
                 ))}
               </div>
@@ -326,7 +326,7 @@ export default function TripMap({
 
           {/* ── Top-right controls ── */}
           <div style={{ position:'absolute', top:12, right:12, zIndex:1000, display:'flex', flexDirection:'column', gap:8 }}>
-            <MapBtn icon={locating ? 'progress_activity' : 'my_location'} title="현재 위치" onClick={locate} style={{ color: locating ? 'var(--c-text2)' : 'var(--c-primary)' }} />
+            <MapBtn icon={locating ? 'progress_activity' : 'my_location'} title="현재 위치" onClick={locate} style={{ color: locating ? 'var(--c-text-3)' : 'var(--c-primary)' }} />
             <MapBtn icon="add" title="확대" onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom()||13)+1)} />
             <MapBtn icon="remove" title="축소" onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom()||13)-1)} />
           </div>

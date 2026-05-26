@@ -298,7 +298,7 @@ img { max-width: 100%; display: block; }
 .btn-ghost { background: transparent; color: var(--c-text-2); }
 .btn-ghost:hover { background: var(--c-surface2); color: var(--c-text-1); }
 
-.btn-danger { background: #FEF2F2; color: var(--c-error); }
+.btn-danger { background: rgba(239,68,68,0.06); color: var(--c-error); }
 .btn-danger:hover { background: var(--c-error); color: #fff; }
 
 .btn-sm { height: 34px; padding: 0 var(--sp-3); font-size: var(--text-xs); }
@@ -409,9 +409,9 @@ img { max-width: 100%; display: block; }
   font-weight: var(--fw-semibold);
 }
 .badge-blue   { background: var(--c-primary-light); color: var(--c-primary); }
-.badge-green  { background: #ECFDF5; color: var(--c-success); }
-.badge-gray   { background: var(--c-surface2); color: var(--c-text-2); }
-.badge-orange { background: #FFF7ED; color: var(--c-accent); }
+.badge-green  { background: rgba(16,185,129,0.1);  color: var(--c-success); }
+.badge-gray   { background: var(--c-surface2);     color: var(--c-text-2); }
+.badge-orange { background: rgba(249,115,22,0.1);  color: var(--c-accent); }
 
 /* ═══════════════════════════════════════════
    Divider

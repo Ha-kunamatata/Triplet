@@ -52,7 +52,7 @@ export default function CreateTripPage() {
   const selectedStyle = TRIP_STYLES.find(s => s.key === form.travelStyle)
 
   return (
-    <div className="fullscreen-page" style={{ background: 'var(--c-bg)', paddingBottom: 32 }}>
+    <div className="fullscreen-page page-enter" style={{ background: 'var(--c-bg)', paddingBottom: 32 }}>
       <PageHeader
         title="새 여행 만들기"
         actions={
@@ -137,7 +137,7 @@ export default function CreateTripPage() {
         </span>
       </div>
 
-      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div key={step} style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12, animation: 'slideInUp 0.22s var(--ease) both' }}>
         {/* ────── STEP 1 ────── */}
         {step === 1 && <>
           <Section label="여행 정보" icon="luggage">

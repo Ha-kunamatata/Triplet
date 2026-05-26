@@ -9,7 +9,7 @@ import TripMap from '../components/maps/TripMap'
 import { ScheduleSkeleton } from '../components/common/LoadingSpinner'
 import EmptyState from '../components/common/EmptyState'
 import Modal from '../components/common/Modal'
-import Toast from '../components/common/Toast'
+import { useToast } from '../components/common/Toast'
 import { SCHEDULE_CATEGORIES, TRIP_STATUS, CHECKLIST_CATEGORIES, DEFAULT_CHECKLIST, ITEM_TYPES, ITEM_TYPE_META, TRANSPORT_MODES, TRIP_EMOJIS } from '../constants'
 import { formatDuration, getFlightDuration } from '../utils/timezoneUtils'
 import {
@@ -40,7 +40,7 @@ export default function TripDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [showEditSheet, setShowEditSheet] = useState(false)
-  const [toast, setToast] = useState(null)
+  const { show: showToast, ToastEl } = useToast()
   const [checklist, setChecklist] = useState([])
   const [newItem, setNewItem] = useState('')
   const [activeId, setActiveId] = useState(null)
@@ -188,8 +188,7 @@ export default function TripDetailPage() {
   async function handleDeleteSchedule(id) {
     const deleted = schedules.find(s => s.id === id)
     await deleteSchedule(id)
-    setToast({
-      message: '일정이 삭제되었습니다.',
+    showToast('일정이 삭제되었습니다.', {
       action: '취소',
       duration: 4000,
       onAction: async () => {
@@ -220,7 +219,7 @@ export default function TripDetailPage() {
       added.push({ id, title: place.name, date: selectedDate, startTime: '', endTime: '', category: 'attraction', memo: place.description || '', cost: '', place: place.name, placeAddress: '', lat: place.lat, lng: place.lng })
     }
     setSchedules(prev => [...prev, ...added])
-    setToast({ message: `${places.length}곳이 추가되었습니다.` })
+    showToast(`${places.length}곳이 추가되었습니다.`, { type: 'success' })
   }
 
   return (
@@ -401,7 +400,7 @@ export default function TripDetailPage() {
                             ? async () => {
                                 const deleted = item
                                 await deleteTripItem(item.id)
-                                setToast({ message: '삭제되었습니다.', action: '취소', duration: 4000, onAction: async () => {
+                                showToast('삭제되었습니다.', { action: '취소', duration: 4000, onAction: async () => {
                                   const { id: _, createdAt: __, _type: ___, ...data } = deleted
                                   await addTripItem(tripId, data)
                                 }})
@@ -449,7 +448,7 @@ export default function TripDetailPage() {
               expenses:        newExpenses,
               categoryBudgets: newCatBudgets,
             })
-            setToast({ message: '저장되었습니다.' })
+            showToast('저장되었습니다.', { type: 'success' })
           }}
         />
       ) : viewMode === 'checklist' ? (
@@ -607,20 +606,12 @@ export default function TripDetailPage() {
             setTrip(prev => ({ ...prev, ...data }))
             if (data.startDate) setSelectedDate(data.startDate)
             setShowEditSheet(false)
-            setToast({ message: '여행 정보가 수정되었습니다.' })
+            showToast('여행 정보가 수정되었습니다.', { type: 'success' })
           }}
         />
       )}
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          action={toast.action}
-          onAction={toast.onAction}
-          duration={toast.duration}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {ToastEl}
     </div>
   )
 }

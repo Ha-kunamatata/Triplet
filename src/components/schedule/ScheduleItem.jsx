@@ -1,7 +1,9 @@
 import { SCHEDULE_CATEGORIES } from '../../constants'
 
 export default function ScheduleItem({ schedule, onEdit, onDelete }) {
-  const cat = SCHEDULE_CATEGORIES.find(c => c.key === schedule.category) ?? SCHEDULE_CATEGORIES.at(-1)
+  if (!schedule) return null
+  const cat = SCHEDULE_CATEGORIES.find(c => c.key === schedule.category)
+    ?? SCHEDULE_CATEGORIES[SCHEDULE_CATEGORIES.length - 1]
 
   return (
     <div style={{

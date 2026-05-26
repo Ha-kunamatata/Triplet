@@ -10,13 +10,16 @@ const COVER_GRADIENTS = {
 }
 
 export default function TripCard({ trip }) {
+  if (!trip) return null
+
   const navigate = useNavigate()
-  const status = calcTripStatus(trip.startDate, trip.endDate)
-  const statusInfo = TRIP_STATUS[status]
+  const status = calcTripStatus(trip.startDate ?? '', trip.endDate ?? '')
+  const statusInfo = TRIP_STATUS[status] ?? TRIP_STATUS.upcoming
   const duration = getTripDuration(trip.startDate, trip.endDate)
   const [bg1, bg2] = COVER_GRADIENTS[trip.emoji] ?? ['#93C5FD', '#3B82F6']
-  const style = TRIP_STYLES.find(s => s.key === trip.travelStyle)
+  const tripStyle = TRIP_STYLES?.find(s => s.key === trip.travelStyle)
   const isOngoing = status === 'ongoing'
+  const isUpcoming = status === 'upcoming'
 
   return (
     <div
@@ -25,75 +28,132 @@ export default function TripCard({ trip }) {
       style={{
         borderRadius: 'var(--r-2xl)', overflow: 'hidden', cursor: 'pointer',
         background: 'var(--c-surface)',
-        boxShadow: isOngoing ? '0 8px 28px rgba(59,130,246,0.18)' : 'var(--shadow-sm)',
-        border: isOngoing ? '1.5px solid rgba(59,130,246,0.25)' : '1px solid var(--c-border)',
-        transition: 'transform 0.18s, box-shadow 0.18s',
+        boxShadow: isOngoing
+          ? '0 6px 24px rgba(59,130,246,0.2), 0 2px 8px rgba(59,130,246,0.1)'
+          : '0 1px 3px rgba(15,23,42,0.06), 0 4px 16px rgba(15,23,42,0.07)',
+        border: isOngoing ? '1.5px solid rgba(59,130,246,0.2)' : '1px solid var(--c-border)',
+        transition: 'transform 0.22s var(--ease), box-shadow 0.22s var(--ease)',
       }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = 'var(--shadow-lg)' }}
-      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = isOngoing ? '0 8px 28px rgba(59,130,246,0.18)' : 'var(--shadow-sm)' }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-4px)'
+        e.currentTarget.style.boxShadow = '0 12px 36px rgba(15,23,42,0.14), 0 2px 8px rgba(15,23,42,0.06)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = ''
+        e.currentTarget.style.boxShadow = isOngoing
+          ? '0 6px 24px rgba(59,130,246,0.2), 0 2px 8px rgba(59,130,246,0.1)'
+          : '0 1px 3px rgba(15,23,42,0.06), 0 4px 16px rgba(15,23,42,0.07)'
+      }}
     >
       {/* ── Cover ── */}
-      <div style={{ height: 148, position: 'relative', overflow: 'hidden', background: `linear-gradient(145deg, ${bg1}, ${bg2})` }}>
-        <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.09)' }} />
-        <div style={{ position: 'absolute', bottom: -20, left: -10, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-52%)', fontSize: 88, opacity: 0.22, filter: 'blur(1px)', userSelect: 'none', pointerEvents: 'none' }}>
+      <div style={{
+        height: 195, position: 'relative', overflow: 'hidden',
+        background: `linear-gradient(145deg, ${bg1}, ${bg2})`,
+      }}>
+        {/* Decorative depth circles */}
+        <div style={{ position:'absolute', top:-60, right:-60, width:200, height:200, borderRadius:'50%', background:'rgba(255,255,255,0.09)' }} />
+        <div style={{ position:'absolute', bottom:-25, left:-15, width:110, height:110, borderRadius:'50%', background:'rgba(255,255,255,0.06)' }} />
+        <div style={{ position:'absolute', top:20, left:-30, width:80, height:80, borderRadius:'50%', background:'rgba(255,255,255,0.04)' }} />
+
+        {/* Large watermark emoji */}
+        <div style={{
+          position:'absolute', top:'50%', left:'50%',
+          transform:'translate(-50%,-56%)',
+          fontSize:120, opacity:0.18, filter:'blur(2px)',
+          userSelect:'none', pointerEvents:'none', lineHeight:1,
+        }}>
           {trip.emoji || '✈️'}
         </div>
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 72, background: 'linear-gradient(to top, rgba(0,0,0,0.52), transparent)' }} />
 
-        {/* 여행지 */}
-        <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 12, fontVariationSettings: "'FILL' 1" }}>location_on</span>
-            {trip.destination}
-          </p>
-          {style && (
-            <span style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(6px)', color: 'rgba(255,255,255,0.9)', padding: '2px 8px', borderRadius: 'var(--r-full)', fontSize: 10, fontWeight: 600 }}>
-              {style.label}
-            </span>
+        {/* Bottom gradient overlay */}
+        <div style={{
+          position:'absolute', bottom:0, left:0, right:0, height:120,
+          background:'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.28) 55%, transparent 100%)',
+        }} />
+
+        {/* Title + destination overlay (Triple style) */}
+        <div style={{ position:'absolute', bottom:12, left:14, right:14 }}>
+          <h3 style={{
+            color:'#fff', fontSize:17, fontWeight:800,
+            letterSpacing:-0.4, lineHeight:1.25,
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+            textShadow:'0 1px 6px rgba(0,0,0,0.3)', marginBottom:3,
+          }}>
+            {trip.title || '여행'}
+          </h3>
+          {trip.destination && (
+            <p style={{ color:'rgba(255,255,255,0.82)', fontSize:12, fontWeight:500, display:'flex', alignItems:'center', gap:3 }}>
+              <span className="material-symbols-outlined" style={{ fontSize:12, fontVariationSettings:"'FILL' 1" }}>location_on</span>
+              {trip.destination}
+            </p>
           )}
         </div>
 
-        {/* 상태 뱃지 */}
-        <div style={{ position: 'absolute', top: 10, right: 10 }}>
-          {isOngoing && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', color: '#fff', padding: '4px 11px', borderRadius: 'var(--r-full)', fontSize: 11, fontWeight: 700 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ADE80', animation: 'lp 1.5s ease-in-out infinite' }} />
-              여행 중
-            </span>
-          )}
-          {status === 'upcoming' && (
-            <span style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', color: '#fff', padding: '4px 12px', borderRadius: 'var(--r-full)', fontSize: 11, fontWeight: 800 }}>
-              {getDDay(trip.startDate)}
-            </span>
-          )}
-          {status === 'completed' && (
-            <span style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(6px)', color: 'rgba(255,255,255,0.7)', padding: '4px 10px', borderRadius: 'var(--r-full)', fontSize: 11 }}>
-              완료
+        {/* Top: status badge + style badge */}
+        <div style={{ position:'absolute', top:10, left:12, right:12, display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+          <div>
+            {isOngoing && (
+              <span style={{
+                display:'flex', alignItems:'center', gap:5,
+                background:'rgba(0,0,0,0.48)', backdropFilter:'blur(8px)',
+                color:'#fff', padding:'4px 10px', borderRadius:'var(--r-full)',
+                fontSize:11, fontWeight:700,
+              }}>
+                <span style={{ width:6, height:6, borderRadius:'50%', background:'#4ADE80', animation:'lp 1.5s ease-in-out infinite' }} />
+                여행 중
+              </span>
+            )}
+            {isUpcoming && (
+              <span style={{
+                background:'rgba(0,0,0,0.48)', backdropFilter:'blur(8px)',
+                color:'#fff', padding:'4px 10px', borderRadius:'var(--r-full)',
+                fontSize:11, fontWeight:800,
+              }}>
+                {getDDay(trip.startDate)}
+              </span>
+            )}
+            {status === 'completed' && (
+              <span style={{
+                background:'rgba(0,0,0,0.3)', backdropFilter:'blur(6px)',
+                color:'rgba(255,255,255,0.75)', padding:'4px 10px',
+                borderRadius:'var(--r-full)', fontSize:11, fontWeight:600,
+              }}>
+                완료
+              </span>
+            )}
+          </div>
+          {tripStyle && (
+            <span style={{
+              background:'rgba(0,0,0,0.35)', backdropFilter:'blur(6px)',
+              color:'rgba(255,255,255,0.9)', padding:'3px 8px',
+              borderRadius:'var(--r-full)', fontSize:10, fontWeight:600,
+            }}>
+              {tripStyle.label}
             </span>
           )}
         </div>
       </div>
 
-      {/* ── Info — Toss 스타일 ── */}
-      <div style={{ padding: '13px 16px 15px' }}>
-        <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6, letterSpacing: -0.3 }}>
-          {trip.title}
-        </h3>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 12, color: 'var(--c-text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 12 }}>calendar_today</span>
+      {/* ── Info Bar ── */}
+      <div style={{ padding:'10px 14px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:5, minWidth:0, flex:1 }}>
+          <span className="material-symbols-outlined" style={{ fontSize:13, color:'var(--c-text-3)', flexShrink:0 }}>calendar_today</span>
+          <span style={{ fontSize:12, color:'var(--c-text-3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
             {formatShortDate(trip.startDate)} – {formatShortDate(trip.endDate)}
-            <span style={{ color: 'var(--c-border2)', margin: '0 2px' }}>·</span>
-            <b style={{ color: 'var(--c-text-2)', fontWeight: 700 }}>{duration}일</b>
           </span>
-          <span style={{ background: statusInfo.bg, color: statusInfo.color, padding: '3px 9px', borderRadius: 'var(--r-full)', fontSize: 11, fontWeight: 700 }}>
-            {statusInfo.label}
-          </span>
+          <span style={{ color:'var(--c-border2)', fontSize:11, flexShrink:0 }}>·</span>
+          <b style={{ color:'var(--c-text-2)', fontWeight:700, fontSize:12, flexShrink:0 }}>{duration}일</b>
         </div>
+        <span style={{
+          background:statusInfo.bg, color:statusInfo.color,
+          padding:'3px 10px', borderRadius:'var(--r-full)',
+          fontSize:11, fontWeight:700, flexShrink:0,
+        }}>
+          {statusInfo.label}
+        </span>
       </div>
 
-      <style>{`@keyframes lp{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0.5)}70%{box-shadow:0 0 0 5px rgba(74,222,128,0)}}`}</style>
+      <style>{`@keyframes lp{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0.5)}70%{box-shadow:0 0 0 6px rgba(74,222,128,0)}}`}</style>
     </div>
   )
 }

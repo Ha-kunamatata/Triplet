@@ -148,7 +148,7 @@ export default function SavedPlacesPage() {
       ) : (
         <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map((p, idx) => {
-            const cat = SCHEDULE_CATEGORIES.find(c => c.key === p.category) ?? SCHEDULE_CATEGORIES.at(-1)
+            const cat = SCHEDULE_CATEGORIES.find(c => c.key === p.category) ?? SCHEDULE_CATEGORIES[SCHEDULE_CATEGORIES.length - 1]
             const hasCoords = p.lat != null && p.lng != null
             const mapsUrl = hasCoords
               ? `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`

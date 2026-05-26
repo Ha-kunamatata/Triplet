@@ -19,12 +19,15 @@ export default function LoadingSpinner({ fullScreen = false, size = 36 }) {
 
 export function TripCardSkeleton() {
   return (
-    <div className="card" style={{ overflow: 'hidden' }}>
-      <div className="skeleton" style={{ height: 140 }} />
-      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div className="skeleton" style={{ height: 12, width: '40%', borderRadius: 6 }} />
-        <div className="skeleton" style={{ height: 18, width: '70%', borderRadius: 6 }} />
-        <div className="skeleton" style={{ height: 12, width: '55%', borderRadius: 6 }} />
+    <div style={{ borderRadius: 'var(--r-2xl)', overflow: 'hidden', background: 'var(--c-surface)', border: '1px solid var(--c-border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06), 0 4px 16px rgba(15,23,42,0.07)' }}>
+      <div className="skeleton" style={{ height: 195 }} />
+      <div style={{ padding: '10px 14px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 6, flex: 1, alignItems: 'center' }}>
+          <div className="skeleton" style={{ height: 12, width: 12, borderRadius: '50%', flexShrink: 0 }} />
+          <div className="skeleton" style={{ height: 12, width: '52%', borderRadius: 6 }} />
+          <div className="skeleton" style={{ height: 12, width: '14%', borderRadius: 6 }} />
+        </div>
+        <div className="skeleton" style={{ height: 22, width: 42, borderRadius: 999, flexShrink: 0 }} />
       </div>
     </div>
   )

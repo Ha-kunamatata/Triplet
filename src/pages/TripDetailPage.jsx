@@ -64,22 +64,28 @@ export default function TripDetailPage() {
   )
 
   useEffect(() => {
-    let unsubSchedules, unsubItems
+    let mounted = true
+    let unsubSchedules = () => {}
+    let unsubItems = () => {}
+
     getTrip(tripId)
       .then(t => {
+        if (!mounted) return
         if (!t) return
         setTrip(t)
-        setSelectedDate(t.startDate)
+        setSelectedDate(t.startDate ?? '')
         setChecklist(t.checklist ?? DEFAULT_CHECKLIST)
         setBudget(t.budget ?? 0)
         setExpenses(t.expenses ?? [])
         setCategoryBudgets(t.categoryBudgets ?? {})
         setDayOrders(t.dayOrders ?? {})
-        unsubSchedules = subscribeToSchedules(tripId, setSchedules)
-        unsubItems     = subscribeToTripItems(tripId, setTripItems)
+        unsubSchedules = subscribeToSchedules(tripId, data => { if (mounted) setSchedules(data) })
+        unsubItems     = subscribeToTripItems(tripId, data => { if (mounted) setTripItems(data) })
       })
-      .finally(() => setLoading(false))
-    return () => { unsubSchedules?.(); unsubItems?.() }
+      .catch(() => { if (mounted) setLoading(false) })
+      .finally(() => { if (mounted) setLoading(false) })
+
+    return () => { mounted = false; unsubSchedules(); unsubItems() }
   }, [tripId])
 
   const handleCombinedDragEnd = useCallback(({ active, over }) => {
@@ -138,7 +144,7 @@ export default function TripDetailPage() {
     </div>
   )
 
-  const dates = generateDateRange(trip.startDate, trip.endDate)
+  const dates = generateDateRange(trip.startDate ?? '', trip.endDate ?? '')
 
   // Day cost lookup
   const dayCosts = {}
@@ -489,7 +495,7 @@ export default function TripDetailPage() {
                   // PLACE 아이템과 일정은 카테고리 기준으로 통일
                   const meta = (isItem && item.type !== 'PLACE')
                     ? ITEM_TYPE_META[item.type]
-                    : SCHEDULE_CATEGORIES.find(c => c.key === (item.category || 'attraction')) ?? SCHEDULE_CATEGORIES.at(-1)
+                    : SCHEDULE_CATEGORIES.find(c => c.key === (item.category || 'attraction')) ?? SCHEDULE_CATEGORIES[SCHEDULE_CATEGORIES.length - 1]
                   const color = meta?.color ?? '#94A3B8'
                   const icon  = meta?.icon  ?? 'place'
                   const title = item.title || item.name || item.flightNumber || item.fromName || '일정'
@@ -790,7 +796,7 @@ function getCombinedMeta(item) {
   // PLACE tripItem 과 일정(schedule)은 모두 카테고리 기준으로 통일
   // KML 가져오기·직접 입력 구분 없이 같은 외형
   const cat = item.category || 'attraction'
-  return SCHEDULE_CATEGORIES.find(c => c.key === cat) ?? SCHEDULE_CATEGORIES.at(-1)
+  return SCHEDULE_CATEGORIES.find(c => c.key === cat) ?? SCHEDULE_CATEGORIES[SCHEDULE_CATEGORIES.length - 1]
 }
 function getCombinedTitle(item) {
   if (item._type === 'sched') return item.title || '일정'
@@ -1154,7 +1160,7 @@ function ViewTab({ label, icon, active, onClick }) {
 }
 
 function TimelineItem({ schedule, isLast, onEdit, onDelete, dragHandleProps }) {
-  const cat = SCHEDULE_CATEGORIES.find(c => c.key === schedule.category) ?? SCHEDULE_CATEGORIES.at(-1)
+  const cat = SCHEDULE_CATEGORIES.find(c => c.key === schedule.category) ?? SCHEDULE_CATEGORIES[SCHEDULE_CATEGORIES.length - 1]
   return (
     <div style={{ display: 'flex' }}>
       {/* Time column */}
@@ -1776,7 +1782,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
             <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--c-primary)' }}>{totalSpent.toLocaleString('ko-KR')}원</span>
           </div>
           {[...expenses].reverse().map((exp, i, arr) => {
-            const cat = BUDGET_CATS.find(c => c.key === exp.category) ?? BUDGET_CATS.at(-1)
+            const cat = BUDGET_CATS.find(c => c.key === exp.category) ?? BUDGET_CATS[BUDGET_CATS.length - 1]
             const isEditing = editingExpense === exp.id
             if (isEditing && editExpForm) {
               return (
@@ -1886,7 +1892,7 @@ function BudgetView({ budget: initBudget, expenses: initExpenses, categoryBudget
                   </div>
                 )}
                 {dayExpenses.map((exp, i) => {
-                  const cat = BUDGET_CATS.find(c => c.key === exp.category) ?? BUDGET_CATS.at(-1)
+                  const cat = BUDGET_CATS.find(c => c.key === exp.category) ?? BUDGET_CATS[BUDGET_CATS.length - 1]
                   return (
                     <div key={exp.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 16px', borderBottom: i < dayExpenses.length - 1 ? '1px solid var(--c-border)' : 'none' }}>
                       <div style={{ width: 30, height: 30, borderRadius: 8, background: cat.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

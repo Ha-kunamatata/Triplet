@@ -481,6 +481,19 @@ img { max-width: 100%; display: block; }
 }
 
 /* ═══════════════════════════════════════════
+   Trip view tabs (hidden on mobile, shown on tablet+)
+═══════════════════════════════════════════ */
+.trip-view-tabs {
+  display: none !important;
+}
+
+@media (min-width: 768px) {
+  .trip-view-tabs {
+    display: flex !important;
+  }
+}
+
+/* ═══════════════════════════════════════════
    Safe area
 ═══════════════════════════════════════════ */
 .safe-top    { padding-top:    max(var(--sp-4), env(safe-area-inset-top)); }

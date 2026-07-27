@@ -4,6 +4,7 @@ import { getTrip, getSchedules, deleteTrip, deleteSchedule, updateChecklist, get
 import { generateDateRange, formatDisplayDate, formatShortDate, getDDay, calcTripStatus } from '../utils/dateUtils'
 import { getItemSortTime } from '../utils/tripItemUtils'
 import DayTab from '../components/schedule/DayTab'
+import QuickAddSheet from '../components/schedule/QuickAddSheet'
 import TripMap from '../components/maps/TripMap'
 import { ScheduleSkeleton } from '../components/common/LoadingSpinner'
 import EmptyState from '../components/common/EmptyState'
@@ -37,6 +38,7 @@ export default function TripDetailPage() {
     [setSearchParams],
   )
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [toast, setToast] = useState(null)
   const [checklist, setChecklist] = useState([])
   const [newItem, setNewItem] = useState('')
@@ -219,8 +221,8 @@ export default function TripDetailPage() {
           })}
         </div>
 
-        {/* View mode tabs + 검색 */}
-        <div style={{ display: 'flex', borderTop: '1px solid var(--c-border)', padding: '0 12px 0 20px', alignItems: 'center' }}>
+        {/* View mode tabs + 검색 (데스크탑/태블릿에서만 표시 — 모바일은 BottomNav) */}
+        <div className="trip-view-tabs" style={{ display: 'flex', borderTop: '1px solid var(--c-border)', padding: '0 12px 0 20px', alignItems: 'center' }}>
           <ViewTab label="일정" icon="view_timeline" active={viewMode === 'timeline'} onClick={() => { setViewMode('timeline'); setShowSearch(false) }} />
           <ViewTab label="지도" icon="map" active={viewMode === 'map'} onClick={() => { setViewMode('map'); setShowSearch(false) }} />
           <ViewTab label={`체크 ${checklist.filter(i=>i.checked).length}/${checklist.length}`} icon="checklist" active={viewMode === 'checklist'} onClick={() => { setViewMode('checklist'); setShowSearch(false) }} />
@@ -351,17 +353,33 @@ export default function TripDetailPage() {
       ) : (
         <>
           {/* Map view */}
-          <TripMap
-            schedules={[
-              ...daySchedules,
-              ...dayTripItems.filter(i => i.lat && i.lng).map(i => ({
-                id: i.id, title: i.title || i.name || i.flightNumber,
-                lat: i.lat, lng: i.lng,
-                category: i.type === 'STAY' ? 'accommodation' : 'attraction',
-              })),
-            ]}
-            height={380}
-          />
+          <div style={{ position: 'relative' }}>
+            <TripMap
+              schedules={[
+                ...daySchedules,
+                ...dayTripItems.filter(i => i.lat && i.lng).map(i => ({
+                  id: i.id, title: i.title || i.name || i.flightNumber,
+                  lat: i.lat, lng: i.lng,
+                  category: i.type === 'STAY' ? 'accommodation' : 'attraction',
+                })),
+              ]}
+              height={380}
+            />
+            <button
+              onClick={() => setShowQuickAdd(true)}
+              style={{
+                position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)',
+                background: 'var(--c-primary)', color: '#fff',
+                padding: '10px 20px', borderRadius: 'var(--r-full)',
+                fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
+                boxShadow: '0 4px 16px rgba(59,130,246,0.45)', zIndex: 10,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add_location</span>
+              장소 추가
+            </button>
+          </div>
 
           {/* Schedule chip list below map */}
           {daySchedules.length > 0 && (
@@ -396,10 +414,10 @@ export default function TripDetailPage() {
 
       {/* ══ FAB ══ */}
       <button
-        onClick={() => navigate(`/trips/${tripId}/item/add`, { state: { date: selectedDate } })}
-        style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)', right: 20, width: 56, height: 56, borderRadius: '50%', background: 'var(--c-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(59,130,246,0.45)', zIndex: 50, transition: 'transform var(--t-fast),box-shadow var(--t-fast)' }}
+        className="fab"
+        onClick={() => setShowQuickAdd(true)}
         onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(59,130,246,0.55)' }}
-        onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 6px 20px rgba(59,130,246,0.45)' }}
+        onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}
       >
         <span className="material-symbols-outlined" style={{ fontSize: 28 }}>add</span>
       </button>
@@ -413,6 +431,17 @@ export default function TripDetailPage() {
         </Modal>
       )}
       {toast && <Toast message={toast.message} onClose={() => setToast(null)} />}
+
+      <QuickAddSheet
+        tripId={tripId}
+        trip={trip}
+        open={showQuickAdd}
+        onClose={() => setShowQuickAdd(false)}
+        onAdded={(item) => {
+          setTripItems(prev => [...prev, item])
+          setToast({ message: '일정이 추가되었습니다 ✓' })
+        }}
+      />
     </div>
   )
 }

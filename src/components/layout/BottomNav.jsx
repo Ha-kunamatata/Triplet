@@ -25,6 +25,11 @@ export default function BottomNav() {
   const tripId = tripMatch?.[1] ?? null
   const inTrip = Boolean(tripId)
 
+  // trip 페이지 진입 시 lastTripId 저장
+  if (inTrip) {
+    localStorage.setItem('lastTripId', tripId)
+  }
+
   // 현재 뷰 모드 (trip 라우트 안에서만 의미 있음)
   const currentView = searchParams.get('view') || 'timeline'
 
@@ -32,9 +37,16 @@ export default function BottomNav() {
     if (inTrip) {
       setSearchParams({ view }, { replace: true })
     } else {
-      navigate('/')
+      const lastId = localStorage.getItem('lastTripId')
+      if (lastId) {
+        navigate(`/trips/${lastId}?view=${view}`)
+      } else {
+        navigate('/')
+      }
     }
   }
+
+  const hasLastTrip = inTrip || Boolean(localStorage.getItem('lastTripId'))
 
   const isHome    = pathname === '/'
   const isTimeline = inTrip && currentView === 'timeline'
@@ -54,7 +66,7 @@ export default function BottomNav() {
       icon:    'event_note',
       label:   '일정',
       active:  isTimeline,
-      dim:     !inTrip,
+      dim:     !hasLastTrip,
       onPress: () => switchView('timeline'),
     },
     {
@@ -62,7 +74,7 @@ export default function BottomNav() {
       icon:    'map',
       label:   '지도',
       active:  isMap,
-      dim:     !inTrip,
+      dim:     !hasLastTrip,
       onPress: () => switchView('map'),
     },
     {
@@ -70,7 +82,7 @@ export default function BottomNav() {
       icon:    'payments',
       label:   '예산',
       active:  isBudget,
-      dim:     !inTrip,
+      dim:     !hasLastTrip,
       onPress: () => switchView('budget'),
     },
     {
